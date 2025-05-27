@@ -296,4 +296,63 @@
     [task launch];
 }
 
+- (void)executeInTerminalDirectly:(NSString *)command windowMode:(WindowMode)windowMode theme:(NSString *)theme title:(NSString *)title {
+    NSString *escapedCommand = [self escapeString:command];
+    NSString *escapedTheme = [self escapeString:theme ?: @"Basic"];
+    NSString *escapedTitle = [self escapeString:title ?: @"Shuttle"];
+
+    NSString *osascriptCommand = nil;
+
+    if (windowMode == WindowModeNew) {
+        // Nouveau Terminal + commande + thème + titre
+        osascriptCommand = [NSString stringWithFormat:
+            @"tell application \"Terminal\"\n"
+             "  activate\n"
+             "  do script \"\"\n"
+             "  set newWindow to front window\n"
+             "  do script \"%@\" in newWindow\n"
+             "  try\n"
+             "    set current settings of newWindow to settings set \"%@\"\n"
+             "  end try\n"
+             "  set custom title of newWindow to \"%@\"\n"
+             "end tell",
+             escapedCommand, escapedTheme, escapedTitle];
+        
+    } else if (windowMode == WindowModeTab) {
+        // Onglet + commande + thème + titre
+        osascriptCommand = [NSString stringWithFormat:
+            @"tell application \"Terminal\"\n"
+             "  activate\n"
+             "  tell application \"System Events\"\n"
+             "    tell process \"Terminal\"\n"
+             "      keystroke \"t\" using {command down}\n"
+             "    end tell\n"
+             "  end tell\n"
+             "  delay 0.2\n"
+             "  do script \"%@\" in front window\n"
+             "  try\n"
+             "    set current settings of front window to settings set \"%@\"\n"
+             "  end try\n"
+             "  set custom title of front window to \"%@\"\n"
+             "end tell",
+             escapedCommand, escapedTheme, escapedTitle];
+
+    } else {
+        // Mode actuel (dans fenêtre ou onglet actif)
+        osascriptCommand = [NSString stringWithFormat:
+            @"tell application \"Terminal\"\n"
+             "  reopen\n"
+             "  activate\n"
+             "  do script \"%@\" in front window\n"
+             "end tell",
+             escapedCommand];
+    }
+
+    // Exécution du AppleScript via osascript
+    NSTask *osascriptTask = [[NSTask alloc] init];
+    [osascriptTask setLaunchPath:@"/usr/bin/osascript"];
+    [osascriptTask setArguments:@[@"-e", osascriptCommand]];
+    [osascriptTask launch];
+}
+
 @end
