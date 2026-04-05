@@ -200,6 +200,11 @@
                          theme:(NSString *)theme 
                          title:(NSString *)title {
     
+    if (windowMode == WindowModeVirtual) {
+        [self executeCommandInBackground:command title:(title ?: @"Shuttle")];
+        return;
+    }
+    
     if (terminalType == TerminalTypeDefault) {
         // 执行 Terminal.app 命令
         [self executeInTerminalDirectly:command windowMode:windowMode theme:theme title:title];
@@ -217,83 +222,78 @@
 }
 
 - (void)executeInITermDirectly:(NSString *)command windowMode:(WindowMode)windowMode theme:(NSString *)theme title:(NSString *)title {
-    NSTask *task = [[NSTask alloc] init];
-    [task setLaunchPath:@"/usr/bin/open"];
-    
-    NSMutableArray *arguments = [NSMutableArray array];
+    NSString *escapedCommand = [self escapeString:command];
+    NSString *escapedTheme = [self escapeString:theme ?: @"Default"];
+    NSString *escapedTitle = [self escapeString:title ?: @"Shuttle"];
+    NSString *profileCreation = [NSString stringWithFormat:@"\"%@\"", escapedTheme];
+    NSString *osascriptCommand = nil;
     
     if (windowMode == WindowModeNew) {
-        // 打开新窗口
-        [arguments addObject:@"-a"];
-        [arguments addObject:@"iTerm"];
-        
-        // 创建临时脚本文件
-        NSString *tempScript = [NSTemporaryDirectory() stringByAppendingPathComponent:@"shuttle_iterm_script.command"];
-        
-        // 使用上次选择的配置文件或默认配置文件
-        NSString *profileOption = theme ? [NSString stringWithFormat:@" -p \"%@\"", theme] : @"";
-        
-        // 构建脚本内容
-        NSString *scriptContent = [NSString stringWithFormat:@"#!/bin/bash\n"
-                                   "osascript -e 'tell application \"iTerm\"\n"
-                                   "  create window with default profile%@\n"
-                                   "  tell current window\n"
-                                   "    tell current session\n"
-                                   "      set name to \"%@\"\n"
-                                   "      write text \"%@\"\n"
-                                   "    end tell\n"
-                                   "  end tell\n"
-                                   "end tell'\n", 
-                                   profileOption, title, [self escapeShellCommand:command]];
-        
-        [scriptContent writeToFile:tempScript atomically:YES encoding:NSUTF8StringEncoding error:nil];
-        
-        // 设置临时脚本可执行
-        NSTask *chmodTask = [[NSTask alloc] init];
-        [chmodTask setLaunchPath:@"/bin/chmod"];
-        [chmodTask setArguments:@[@"+x", tempScript]];
-        [chmodTask launch];
-        [chmodTask waitUntilExit];
-        
-        [arguments addObject:tempScript];
+        osascriptCommand = [NSString stringWithFormat:
+            @"tell application \"iTerm\"\n"
+             "  activate\n"
+             "  try\n"
+             "    create window with profile %@\n"
+             "  on error\n"
+             "    create window with default profile\n"
+             "  end try\n"
+             "  tell current window\n"
+             "    tell current session\n"
+             "      set name to \"%@\"\n"
+             "      write text \"%@\"\n"
+             "    end tell\n"
+             "  end tell\n"
+             "end tell",
+             profileCreation, escapedTitle, escapedCommand];
     } else if (windowMode == WindowModeTab) {
-        // 对于标签页模式
-        NSString *osascriptCommand = [NSString stringWithFormat:@"tell application \"iTerm\"\n"
-                                      "  tell current window\n"
-                                      "    create tab with default profile\n"
-                                      "    tell current session\n"
-                                      "      set name to \"%@\"\n"
-                                      "      write text \"%@\"\n"
-                                      "    end tell\n"
-                                      "  end tell\n"
-                                      "end tell", 
-                                      title, [self escapeShellCommand:command]];
-        
-        NSTask *osascriptTask = [[NSTask alloc] init];
-        [osascriptTask setLaunchPath:@"/usr/bin/osascript"];
-        [osascriptTask setArguments:@[@"-e", osascriptCommand]];
-        [osascriptTask launch];
-        return;
+        osascriptCommand = [NSString stringWithFormat:
+            @"tell application \"iTerm\"\n"
+             "  activate\n"
+             "  if (count of windows) = 0 then\n"
+             "    try\n"
+             "      create window with profile %@\n"
+             "    on error\n"
+             "      create window with default profile\n"
+             "    end try\n"
+             "  end if\n"
+             "  tell current window\n"
+             "    try\n"
+             "      create tab with profile %@\n"
+             "    on error\n"
+             "      create tab with default profile\n"
+             "    end try\n"
+             "    tell current session\n"
+             "      set name to \"%@\"\n"
+             "      write text \"%@\"\n"
+             "    end tell\n"
+             "  end tell\n"
+             "end tell",
+             profileCreation, profileCreation, escapedTitle, escapedCommand];
     } else {
-        // 对于当前窗口模式
-        NSString *osascriptCommand = [NSString stringWithFormat:@"tell application \"iTerm\"\n"
-                                      "  tell current window\n"
-                                      "    tell current session\n"
-                                      "      write text \"%@\"\n"
-                                      "    end tell\n"
-                                      "  end tell\n"
-                                      "end tell", 
-                                      [self escapeShellCommand:command]];
-        
-        NSTask *osascriptTask = [[NSTask alloc] init];
-        [osascriptTask setLaunchPath:@"/usr/bin/osascript"];
-        [osascriptTask setArguments:@[@"-e", osascriptCommand]];
-        [osascriptTask launch];
-        return;
+        osascriptCommand = [NSString stringWithFormat:
+            @"tell application \"iTerm\"\n"
+             "  reopen\n"
+             "  activate\n"
+             "  if (count of windows) = 0 then\n"
+             "    try\n"
+             "      create window with profile %@\n"
+             "    on error\n"
+             "      create window with default profile\n"
+             "    end try\n"
+             "  end if\n"
+             "  tell current window\n"
+             "    tell current session\n"
+             "      write text \"%@\"\n"
+             "    end tell\n"
+             "  end tell\n"
+             "end tell",
+             profileCreation, escapedCommand];
     }
     
-    [task setArguments:arguments];
-    [task launch];
+    NSTask *osascriptTask = [[NSTask alloc] init];
+    [osascriptTask setLaunchPath:@"/usr/bin/osascript"];
+    [osascriptTask setArguments:@[@"-e", osascriptCommand]];
+    [osascriptTask launch];
 }
 
 - (void)executeInTerminalDirectly:(NSString *)command windowMode:(WindowMode)windowMode theme:(NSString *)theme title:(NSString *)title {

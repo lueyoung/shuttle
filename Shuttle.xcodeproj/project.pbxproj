@@ -28,6 +28,7 @@
 		A1B7B9DD1DB53ED200809327 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A1B7B9DF1DB53ED200809327 /* Localizable.strings */; };
 		A1D700071A5DCE8D003563E4 /* AboutWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1D700061A5DCE8D003563E4 /* AboutWindowController.m */; };
 		C149EBFE15D5214600B1F558 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C149EBFD15D5214600B1F558 /* Cocoa.framework */; };
+		C15A000115D5214600B1F558 /* ServiceManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C15A000015D5214600B1F558 /* ServiceManagement.framework */; };
 		C149EC0815D5214600B1F558 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = C149EC0615D5214600B1F558 /* InfoPlist.strings */; };
 		C149EC0A15D5214600B1F558 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = C149EC0915D5214600B1F558 /* main.m */; };
 		C149EC0E15D5214600B1F558 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = C149EC0C15D5214600B1F558 /* Credits.rtf */; };
@@ -80,6 +81,7 @@
 		BDCFF1561E4E890A00B365C9 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		C149EBF915D5214600B1F558 /* Shuttle.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Shuttle.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C149EBFD15D5214600B1F558 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		C15A000015D5214600B1F558 /* ServiceManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServiceManagement.framework; path = System/Library/Frameworks/ServiceManagement.framework; sourceTree = SDKROOT; };
 		C149EC0015D5214600B1F558 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		C149EC0115D5214600B1F558 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		C149EC0215D5214600B1F558 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
@@ -99,6 +101,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C149EBFE15D5214600B1F558 /* Cocoa.framework in Frameworks */,
+				C15A000115D5214600B1F558 /* ServiceManagement.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -165,6 +168,7 @@
 				C149EC0015D5214600B1F558 /* AppKit.framework */,
 				C149EC0115D5214600B1F558 /* CoreData.framework */,
 				C149EC0215D5214600B1F558 /* Foundation.framework */,
+				C15A000015D5214600B1F558 /* ServiceManagement.framework */,
 			);
 			name = "Other Frameworks";
 			sourceTree = "<group>";
@@ -215,7 +219,6 @@
 				C149EBF515D5214600B1F558 /* Sources */,
 				C149EBF615D5214600B1F558 /* Frameworks */,
 				C149EBF715D5214600B1F558 /* Resources */,
-				5CA08BDA2D851C1700BCE63D /* Compile AppleScripts */,
 			);
 			buildRules = (
 			);
@@ -288,27 +291,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		5CA08BDA2D851C1700BCE63D /* Compile AppleScripts */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Compile AppleScripts";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# 创建目标目录\nmkdir -p \"$BUILT_PRODUCTS_DIR/$CONTENTS_FOLDER_PATH/Resources/apple-scpt\"\n\n# 将 .applescript 文件编译为 .scpt 文件\nfor f in \"$PROJECT_DIR/Shuttle/apple-scpt-text/\"*.applescript; do\n    if [ -f \"$f\" ]; then\n        filename=$(basename \"$f\" .applescript)\n        echo \"编译: $f -> $BUILT_PRODUCTS_DIR/$CONTENTS_FOLDER_PATH/Resources/apple-scpt/${filename}.scpt\"\n        osacompile -o \"$BUILT_PRODUCTS_DIR/$CONTENTS_FOLDER_PATH/Resources/apple-scpt/${filename}.scpt\" \"$f\"\n    fi\ndone\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		C149EBF515D5214600B1F558 /* Sources */ = {

@@ -71,7 +71,9 @@
     // Create the status bar item
     statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSSquareStatusItemLength];
     [statusItem setMenu:menu];
-    [statusItem setImage: regularIcon];
+    if (statusItem.button) {
+        statusItem.button.image = regularIcon;
+    }
     
     // Check for AppKit Version, add support for darkmode if > 10.9
     BOOL oldAppKitVersion = (floor(NSAppKitVersionNumber) <= 1265);
@@ -83,8 +85,9 @@
     }
     // Load the alt image for OS X < 10.10
     else{
-        [statusItem setHighlightMode:YES];
-        [statusItem setAlternateImage: altIcon];
+        if (statusItem.button) {
+            statusItem.button.alternateImage = altIcon;
+        }
     }
     
     launchAtLoginController = [[LaunchAtLoginController alloc] init];
@@ -114,12 +117,21 @@
     // Check when the config was last modified
     if ( [self needUpdateFor:shuttleConfigFile with:configModified] ||
         [self needUpdateFor:shuttleAltConfigFile with:configModified2] ||
+        [self needUpdateFor: @"/etc/ssh_config" with:sshConfigSystem] ||
         [self needUpdateFor: @"/etc/ssh/ssh_config" with:sshConfigSystem] ||
         [self needUpdateFor: @"~/.ssh/config" with:sshConfigUser]) {
         
         configModified = [self getMTimeFor:shuttleConfigFile];
         configModified2 = [self getMTimeFor:shuttleAltConfigFile];
-        sshConfigSystem = [self getMTimeFor: @"/etc/ssh/ssh_config"];
+        NSDate *primarySystemConfig = [self getMTimeFor:@"/etc/ssh_config"];
+        NSDate *secondarySystemConfig = [self getMTimeFor:@"/etc/ssh/ssh_config"];
+        if (primarySystemConfig && secondarySystemConfig) {
+            sshConfigSystem = ([primarySystemConfig compare:secondarySystemConfig] == NSOrderedAscending)
+                ? secondarySystemConfig
+                : primarySystemConfig;
+        } else {
+            sshConfigSystem = primarySystemConfig ?: secondarySystemConfig;
+        }
         sshConfigUser = [self getMTimeFor: @"~/.ssh/config"];
         
         [self loadMenu];
@@ -130,24 +142,31 @@
 // Courtesy of https://gist.github.com/geeksunny/3376694
 - (NSDictionary<NSString *, NSDictionary *> *)parseSSHConfigFile {
     
-    NSString *configFile = nil;
     NSFileManager *fileMgr = [[NSFileManager alloc] init];
+    NSMutableDictionary<NSString *, NSDictionary *> *servers = [[NSMutableDictionary alloc] init];
+    NSArray<NSString *> *configFiles = @[
+        @"/etc/ssh_config",
+        @"/etc/ssh/ssh_config",
+        [@"~/.ssh/config" stringByExpandingTildeInPath]
+    ];
     
-    // First check the system level configuration
-    if ([fileMgr fileExistsAtPath: @"/etc/ssh_config"]) {
-        configFile = @"/etc/ssh_config";
+    for (NSString *configFile in configFiles) {
+        if (![fileMgr fileExistsAtPath:configFile]) {
+            continue;
+        }
+        
+        NSDictionary *parsedServers = [self parseSSHConfig:configFile];
+        if (parsedServers) {
+            [servers addEntriesFromDictionary:parsedServers];
+        }
     }
     
-    // Fallback to check if actually someone used /etc/ssh/ssh_config
-    if ([fileMgr fileExistsAtPath: [@"~/.ssh/config" stringByExpandingTildeInPath]]) {
-        configFile = [@"~/.ssh/config" stringByExpandingTildeInPath];
-    }
-    
-    if (configFile == nil) {
+    if ([servers count] == 0) {
         // We did not find any config file so we gracefully die
         return nil;
     }
-    return [self parseSSHConfig:configFile];
+    
+    return servers;
 }
 
 - (NSDictionary<NSString *, NSDictionary *> *)parseSSHConfig:(NSString *)filepath {
@@ -631,7 +650,7 @@
 - (IBAction)showImportPanel:(id)sender {
     NSOpenPanel * openPanelObj	= [NSOpenPanel openPanel];
     NSInteger tvarNSInteger	= [openPanelObj runModal];
-    if(tvarNSInteger == NSOKButton){
+    if(tvarNSInteger == NSModalResponseOK){
         //Backup the current configuration
         [[NSFileManager defaultManager] moveItemAtPath:shuttleConfigFile toPath: [NSHomeDirectory() stringByAppendingPathComponent:@".shuttle.json.backup"] error: nil];
         
@@ -651,7 +670,7 @@
     NSAlert *alert = [[NSAlert alloc] init];
     [alert setInformativeText:errorInfo];
     [alert setMessageText:errorMessage];
-    [alert setAlertStyle:NSWarningAlertStyle];
+    [alert setAlertStyle:NSAlertStyleWarning];
     
     if (continueOption) {
         [alert addButtonWithTitle:NSLocalizedString(@"Quit",nil)];
@@ -670,7 +689,7 @@
     NSSavePanel * savePanelObj	= [NSSavePanel savePanel];
     //Display the Save Panel
     NSInteger result	= [savePanelObj runModal];
-    if (result == NSFileHandlingPanelOKButton) {
+    if (result == NSModalResponseOK) {
         NSURL *saveURL = [savePanelObj URL];
         // then copy a previous file to the new location
         [[NSFileManager defaultManager] copyItemAtPath:shuttleConfigFile toPath:saveURL.path error:nil];
@@ -682,7 +701,7 @@
     //if the editor setting is omitted or contains 'default' open using the default editor.
     if([editorPref rangeOfString:@"default"].location != NSNotFound) {
         
-        [[NSWorkspace sharedWorkspace] openFile:shuttleConfigFile];
+        [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:shuttleConfigFile]];
     }
     else{
         //build the editor command

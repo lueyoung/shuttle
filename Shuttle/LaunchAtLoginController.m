@@ -23,6 +23,8 @@
 //  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #import "LaunchAtLoginController.h"
+#import <CoreServices/CoreServices.h>
+#import <ServiceManagement/ServiceManagement.h>
 
 static NSString *const StartAtLoginKey = @"launchAtLogin";
 
@@ -46,18 +48,35 @@ void sharedFileListDidChange(LSSharedFileListRef inList, void *context)
 
 - (id) init
 {
-    [super init];
-    loginItems = LSSharedFileListCreate(NULL, kLSSharedFileListSessionLoginItems, NULL);
-    LSSharedFileListAddObserver(loginItems, CFRunLoopGetMain(),
-                                (CFStringRef)NSDefaultRunLoopMode, sharedFileListDidChange, self);
+    self = [super init];
+    if (!self) {
+        return nil;
+    }
+    
+    if (@available(macOS 13.0, *)) {
+        loginItems = NULL;
+    } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        loginItems = LSSharedFileListCreate(NULL, kLSSharedFileListSessionLoginItems, NULL);
+        LSSharedFileListAddObserver(loginItems, CFRunLoopGetMain(),
+                                    (CFStringRef)NSDefaultRunLoopMode, sharedFileListDidChange, self);
+#pragma clang diagnostic pop
+    }
+
     return self;
 }
 
 - (void) dealloc
 {
-    LSSharedFileListRemoveObserver(loginItems, CFRunLoopGetMain(),
-                                   (CFStringRef)NSDefaultRunLoopMode, sharedFileListDidChange, self);
-    CFRelease(loginItems);
+    if (loginItems != NULL) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        LSSharedFileListRemoveObserver(loginItems, CFRunLoopGetMain(),
+                                       (CFStringRef)NSDefaultRunLoopMode, sharedFileListDidChange, self);
+#pragma clang diagnostic pop
+        CFRelease(loginItems);
+    }
     [super dealloc];
 }
 
@@ -68,6 +87,8 @@ void sharedFileListDidChange(LSSharedFileListRef inList, void *context)
     if (wantedURL == NULL || fileList == NULL)
         return NULL;
     
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     NSArray *listSnapshot = [NSMakeCollectable(LSSharedFileListCopySnapshot(fileList, NULL)) autorelease];
     for (id itemObject in listSnapshot) {
         LSSharedFileListItemRef item = (LSSharedFileListItemRef) itemObject;
@@ -81,23 +102,42 @@ void sharedFileListDidChange(LSSharedFileListRef inList, void *context)
         if (currentItemURL)
             CFRelease(currentItemURL);
     }
+#pragma clang diagnostic pop
     
     return NULL;
 }
 
 - (BOOL) willLaunchAtLogin: (NSURL*) itemURL
 {
+    if (@available(macOS 13.0, *)) {
+        return [SMAppService mainAppService].status == SMAppServiceStatusEnabled;
+    }
+    
     return !![self findItemWithURL:itemURL inFileList:loginItems];
 }
 
 - (void) setLaunchAtLogin: (BOOL) enabled forURL: (NSURL*) itemURL
 {
+    if (@available(macOS 13.0, *)) {
+        NSError *error = nil;
+        BOOL success = enabled
+            ? [[SMAppService mainAppService] registerAndReturnError:&error]
+            : [[SMAppService mainAppService] unregisterAndReturnError:&error];
+        if (!success && error != nil) {
+            NSLog(@"Failed to update launch-at-login setting: %@", error);
+        }
+        return;
+    }
+    
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     LSSharedFileListItemRef appItem = [self findItemWithURL:itemURL inFileList:loginItems];
     if (enabled && !appItem) {
         LSSharedFileListInsertItemURL(loginItems, kLSSharedFileListItemBeforeFirst,
                                       NULL, NULL, (CFURLRef)itemURL, NULL, NULL);
     } else if (!enabled && appItem)
         LSSharedFileListItemRemove(loginItems, appItem);
+#pragma clang diagnostic pop
 }
 
 #pragma mark Basic Interface
