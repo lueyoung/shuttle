@@ -122,119 +122,6 @@
     return [value isKindOfClass:[NSString class]] ? [value lowercaseString] : defaultValue;
 }
 
-- (NSString *)stringValueFromDictionary:(NSDictionary *)dictionary key:(NSString *)key {
-    id value = dictionary[key];
-    return [value isKindOfClass:[NSString class]] ? value : nil;
-}
-
-- (NSString *)lowercaseStringValueFromDictionary:(NSDictionary *)dictionary key:(NSString *)key {
-    NSString *value = [self stringValueFromDictionary:dictionary key:key];
-    return [value lowercaseString];
-}
-
-- (NSString *)normalizedWindowModeString:(NSString *)mode {
-    if (![mode isKindOfClass:[NSString class]]) {
-        return nil;
-    }
-
-    return [[mode stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] lowercaseString];
-}
-
-- (NSDictionary *)representedObjectForMenuItemConfig:(NSDictionary *)config displayName:(NSString *)displayName {
-    NSMutableDictionary *representedObject = [NSMutableDictionary dictionary];
-    NSString *command = [self stringValueFromDictionary:config key:@"cmd"];
-    NSString *name = displayName ?: [self stringValueFromDictionary:config key:@"name"] ?: @"Shuttle";
-
-    representedObject[@"cmd"] = command ?: @"";
-    representedObject[@"name"] = name;
-
-    for (NSString *key in @[@"theme", @"title", @"inTerminal", @"type"]) {
-        NSString *value = [self stringValueFromDictionary:config key:key];
-        if ([value length] > 0) {
-            representedObject[key] = value;
-        }
-    }
-
-    return representedObject;
-}
-
-- (NSDictionary *)commandConfigFromRepresentedObject:(id)representedObject {
-    if ([representedObject isKindOfClass:[NSDictionary class]]) {
-        return representedObject;
-    }
-
-    if (![representedObject isKindOfClass:[NSString class]]) {
-        return nil;
-    }
-
-    NSArray *legacyParts = [representedObject componentsSeparatedByString:@"¬_¬"];
-    if ([legacyParts count] < 5) {
-        return nil;
-    }
-
-    NSMutableDictionary *config = [NSMutableDictionary dictionary];
-    NSArray *keys = @[@"cmd", @"theme", @"title", @"inTerminal", @"name"];
-    for (NSUInteger index = 0; index < [keys count]; index++) {
-        NSString *value = legacyParts[index];
-        if (![value isEqualToString:@"(null)"]) {
-            config[keys[index]] = value;
-        }
-    }
-
-    return config;
-}
-
-- (BOOL)isSupportedWindowMode:(NSString *)mode {
-    NSString *normalizedMode = [self normalizedWindowModeString:mode];
-    return [normalizedMode isEqualToString:@"tab"] ||
-           [normalizedMode isEqualToString:@"new"] ||
-           [normalizedMode isEqualToString:@"current"] ||
-           [normalizedMode isEqualToString:@"virtual"];
-}
-
-- (WindowMode)windowModeForString:(NSString *)mode {
-    NSString *normalizedMode = [self normalizedWindowModeString:mode];
-    if ([normalizedMode isEqualToString:@"new"]) {
-        return WindowModeNew;
-    }
-    if ([normalizedMode isEqualToString:@"current"]) {
-        return WindowModeCurrent;
-    }
-    if ([normalizedMode isEqualToString:@"virtual"]) {
-        return WindowModeVirtual;
-    }
-    return WindowModeTab;
-}
-
-- (NSURL *)allowedURLFromCommand:(NSString *)command explicitURL:(BOOL)explicitURL {
-    if (![command isKindOfClass:[NSString class]] || [command length] == 0) {
-        return nil;
-    }
-
-    NSCharacterSet *whitespace = [NSCharacterSet whitespaceAndNewlineCharacterSet];
-    if (!explicitURL && [command rangeOfCharacterFromSet:whitespace].location != NSNotFound) {
-        return nil;
-    }
-
-    NSURL *url = [NSURL URLWithString:command];
-    NSString *scheme = [[url scheme] lowercaseString];
-    NSSet *allowedSchemes = [NSSet setWithObjects:@"http", @"https", @"file", @"ssh", nil];
-    if (url && [allowedSchemes containsObject:scheme]) {
-        return url;
-    }
-
-    return nil;
-}
-
-- (NSString *)shellQuotedString:(NSString *)value {
-    if (![value isKindOfClass:[NSString class]] || [value length] == 0) {
-        return @"''";
-    }
-
-    NSString *escaped = [value stringByReplacingOccurrencesOfString:@"'" withString:@"'\\''"];
-    return [NSString stringWithFormat:@"'%@'", escaped];
-}
-
 - (NSMutableArray *)mutableStringArrayFromValue:(id)value {
     if (![value isKindOfClass:[NSArray class]]) {
         return [NSMutableArray array];
@@ -717,13 +604,23 @@
         NSDictionary* cfg = leafs[key];
         NSMenuItem* menuItem = [[NSMenuItem alloc] init];
 
+        //Get the command we are going to run in termainal
+        NSString *menuCmd = cfg[@"cmd"];
+        //Get the theme for this terminal session
+        NSString *termTheme = cfg[@"theme"];
+        //Get the name for the terminal session
+        NSString *termTitle = cfg[@"title"];
+        //Get the value of setting inTerminal
+        NSString *termWindow = cfg[@"inTerminal"];
         //Get the menu name will will use this as the title if title is null.
         [self separatorSortRemoval:cfg[@"name"]];
 
+        //Place the terminal command, theme, and title into an comma delimited string
+        NSString *menuRepObj = [NSString stringWithFormat:@"%@¬_¬%@¬_¬%@¬_¬%@¬_¬%@", menuCmd, termTheme, termTitle, termWindow, menuName];
+
         [menuItem setTitle:menuName];
-        [menuItem setRepresentedObject:[self representedObjectForMenuItemConfig:cfg displayName:menuName]];
+        [menuItem setRepresentedObject:menuRepObj];
         [menuItem setAction:@selector(openHost:)];
-        [menuItem setTarget:self];
         [m insertItem:menuItem atIndex:pos++];
         if (addSeparator) {
             [m insertItem:[NSMenuItem separatorItem] atIndex:pos++];
@@ -773,30 +670,29 @@
     NSString *errorMessage;
     NSString *errorInfo;
 
-    NSDictionary *commandConfig = [self commandConfigFromRepresentedObject:[sender representedObject]];
-    if (!commandConfig) {
+    //Place the comma delimited string of menu item settings into an array
+    NSArray *objectsFromJSON = [[sender representedObject] componentsSeparatedByString:(@"¬_¬")];
+    if ([objectsFromJSON count] < 5) {
         [self throwError:NSLocalizedString(@"Invalid menu item configuration", nil)
           additionalInfo:NSLocalizedString(@"The selected item does not contain a complete command definition.", nil)
 continueOnErrorOption:NO];
         return;
     }
 
-    NSString *command = [self stringValueFromDictionary:commandConfig key:@"cmd"];
-    if ([command length] == 0) {
-        [self throwError:NSLocalizedString(@"Invalid menu item configuration", nil)
-          additionalInfo:NSLocalizedString(@"The selected item does not define a command.", nil)
-continueOnErrorOption:NO];
-        return;
-    }
-
-    NSString *menuItemName = [self stringValueFromDictionary:commandConfig key:@"name"] ?: [sender title] ?: @"Shuttle";
+    //This is our command that will be run in the terminal window
+    NSString *escapedObject;
+    //The theme for the terminal window
     NSString *terminalTheme;
+    //The title for the terminal window
     NSString *terminalTitle;
+    //Are commands run in a new tab (default) a new terminal window (new), or in the current tab of the last used window (current).
     NSString *terminalWindow;
 
-    terminalTheme = [self stringValueFromDictionary:commandConfig key:@"theme"];
-    if ([terminalTheme length] == 0) {
-        if ([themePref length] == 0) {
+    escapedObject = [objectsFromJSON objectAtIndex:0];
+
+    //if terminalTheme is not set then check for a global setting.
+    if( [[objectsFromJSON objectAtIndex:1] isEqualToString:@"(null)"] ){
+        if(themePref == 0) {
             if( [terminalPref isEqualToString:@"iterm"] ){
                 //we have no global theme and there is no theme in the command settings.
                 //Forcing the Default profile for iTerm and the basic profile for Terminal.app
@@ -804,41 +700,47 @@ continueOnErrorOption:NO];
             }else{
                 terminalTheme = @"basic";
             }
+            //We have a global setting using this as the theme.
         }else {
             terminalTheme = themePref;
         }
+        //we have command level theme override the Global default_theme settings.
+    }else{
+        terminalTheme = [objectsFromJSON objectAtIndex:1];
     }
 
-    terminalTitle = [self stringValueFromDictionary:commandConfig key:@"title"];
-    if ([terminalTitle length] == 0) {
-        terminalTitle = menuItemName;
+    //Check if terminalTitle is null
+    if( [[objectsFromJSON objectAtIndex:2] isEqualToString:@"(null)"]){
+        //setting the empty title to that of the menu item.
+        terminalTitle = [objectsFromJSON objectAtIndex:4];
+    }else{
+        terminalTitle = [objectsFromJSON objectAtIndex:2];
     }
 
-    NSString *commandWindow = [self normalizedWindowModeString:[self stringValueFromDictionary:commandConfig key:@"inTerminal"]];
-    if ([commandWindow length] == 0) {
-        NSString *globalWindow = [self normalizedWindowModeString:openInPref];
-        terminalWindow = [self isSupportedWindowMode:globalWindow] ? globalWindow : @"tab";
-    } else {
-        terminalWindow = commandWindow;
-        if (![self isSupportedWindowMode:terminalWindow]) {
-            errorMessage = [NSString stringWithFormat:@"%@%@%@ %@", @"'", terminalWindow, @"'", NSLocalizedString(@"is not a valid value for inTerminal. Please fix this in the JSON file", nil)];
-            errorInfo = NSLocalizedString(@"bad \"inTerminal\":\"VALUE\" in the JSON settings", nil);
+    //Check if inTerminal is null if so then use the default settings of open_in
+    if( [[objectsFromJSON objectAtIndex:3] isEqualToString:@"(null)"]){
+
+        //if open_in is not "tab" or "new" then force the default of "tab".
+        if( ![openInPref isEqualToString:@"tab"] && ![openInPref isEqualToString:@"new"]){
+            openInPref = @"tab";
+        }
+        //open_in was not empty or bad value we are passing the settings.
+        terminalWindow = openInPref;
+    }else{
+        //inTerminal is not null and overrides the default values of open_in
+        terminalWindow = [objectsFromJSON objectAtIndex:3];
+        if( ![terminalWindow isEqualToString:@"new"] && ![terminalWindow isEqualToString:@"current"] && ![terminalWindow isEqualToString:@"tab"] && ![terminalWindow isEqualToString:@"virtual"])
+        {
+            errorMessage = [NSString stringWithFormat:@"%@%@%@ %@",@"'",terminalWindow,@"'", NSLocalizedString(@"is not a valid value for inTerminal. Please fix this in the JSON file",nil)];
+            errorInfo = NSLocalizedString(@"bad \"inTerminal\":\"VALUE\" in the JSON settings",nil);
             [self throwError:errorMessage additionalInfo:errorInfo continueOnErrorOption:NO];
-            return;
         }
     }
 
-    NSString *commandType = [self lowercaseStringValueFromDictionary:commandConfig key:@"type"];
-    BOOL explicitURL = [commandType isEqualToString:@"url"];
-    NSURL *url = [self allowedURLFromCommand:command explicitURL:explicitURL];
-    if (url) {
+    // 先检查是否是 URL
+    NSURL *url = [NSURL URLWithString:escapedObject];
+    if (url && [url scheme]) {
         [[NSWorkspace sharedWorkspace] openURL:url];
-        return;
-    }
-
-    if (explicitURL) {
-        [self showWarning:NSLocalizedString(@"Could not open URL", nil)
-           additionalInfo:NSLocalizedString(@"Only http, https, file, and ssh URLs are supported.", nil)];
         return;
     }
 
@@ -848,14 +750,28 @@ continueOnErrorOption:NO];
         termType = TerminalTypeITerm;
     }
 
-    WindowMode winMode = [self windowModeForString:terminalWindow];
+    // 确定窗口模式
+    WindowMode winMode = WindowModeTab; // 默认为标签页模式
+    if ([terminalWindow isEqualToString:@"new"]) {
+        winMode = WindowModeNew;
+    } else if ([terminalWindow isEqualToString:@"current"]) {
+        winMode = WindowModeCurrent;
+    } else if ([terminalWindow isEqualToString:@"virtual"]) {
+        winMode = WindowModeVirtual;
+    }
 
     // 使用 TerminalManager 执行命令
-    [[TerminalManager sharedManager] executeCommand:command
-                                      terminalType:termType
-                                        windowMode:winMode
-                                             theme:terminalTheme
-                                             title:terminalTitle];
+    //[[TerminalManager sharedManager] executeCommand:escapedObject
+    //                                  terminalType:termType
+    //                                  windowMode:winMode
+    //                                       theme:terminalTheme
+    //                                       title:terminalTitle];
+
+    [[TerminalManager sharedManager] executeCommandDirectly:escapedObject
+                                         terminalType:termType
+                                           windowMode:winMode
+                                                theme:terminalTheme
+                                                title:terminalTitle];
 }
 
 - (void) runScript:(NSString *)scriptPath handler:(NSString*)handlerName parameters:(NSArray*)parametersInArray {
@@ -1011,19 +927,16 @@ continueOnErrorOption:NO];
     }
     else{
         //build the editor command
-        NSString *editorCommand = [NSString stringWithFormat:@"%@ %@", editorPref, [self shellQuotedString:shuttleConfigFile]];
-        NSDictionary *editorRepObj = @{
-            @"cmd": editorCommand,
-            @"title": @"Editing shuttle JSON",
-            @"name": @"Editing shuttle JSON"
-        };
+        NSString *editorCommand = [NSString stringWithFormat:@"%@ %@", editorPref, shuttleConfigFile];
+
+        //build the reprensented object. It's expecting menuCmd, termTheme, termTitle, termWindow, menuName
+        NSString *editorRepObj = [NSString stringWithFormat:@"%@¬_¬%@¬_¬%@¬_¬%@¬_¬%@", editorCommand, nil, @"Editing shuttle JSON", nil, nil];
 
         //make a menu item for the command selector(openHost:) runs in a new terminal window.
         NSMenuItem *editorMenu = [[NSMenuItem alloc] initWithTitle:@"editJSONconfig" action:@selector(openHost:) keyEquivalent:(@"")];
 
         //set the command for the menu item
         [editorMenu setRepresentedObject:editorRepObj];
-        [editorMenu setTarget:self];
 
         //open the JSON file in the terminal editor.
         [self openHost:editorMenu];

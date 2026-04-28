@@ -8,7 +8,6 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 LINE_RE = re.compile(r"^(#?)[ \t]*([^ \t=]+)[ \t=]+(.*)$")
-SUPPORTED_WINDOW_MODES = {"tab", "new", "current", "virtual"}
 
 
 def load_json(path):
@@ -82,22 +81,18 @@ def parse_ssh_config(path, visited=None):
     return servers
 
 
-def collect_leaf_items(items):
-    leaf_items = []
+def collect_leaf_names(items):
+    names = []
     for item in items:
         if not isinstance(item, dict):
             continue
         if isinstance(item.get("name"), str) and isinstance(item.get("cmd"), str):
-            leaf_items.append(item)
+            names.append(item["name"])
             continue
         for value in item.values():
             if isinstance(value, list):
-                leaf_items.extend(collect_leaf_items(value))
-    return leaf_items
-
-
-def collect_leaf_names(items):
-    return [item["name"] for item in collect_leaf_items(items)]
+                names.extend(collect_leaf_names(value))
+    return names
 
 
 class ConfigFixtureTests(unittest.TestCase):
@@ -112,22 +107,6 @@ class ConfigFixtureTests(unittest.TestCase):
         names = collect_leaf_names(config["hosts"])
         self.assertIn("Main Item", names)
         self.assertIn("Submenu Item #3.1.1", names)
-
-    def test_window_modes_and_url_type_are_documented_in_fixtures(self):
-        default_config = load_json(ROOT / "Shuttle" / "shuttle.default.json")
-        test_config = load_json(ROOT / "tests" / ".shuttle.json")
-        self.assertIn(default_config.get("open_in"), SUPPORTED_WINDOW_MODES)
-        self.assertIn(test_config.get("open_in"), SUPPORTED_WINDOW_MODES)
-
-        leaf_items = collect_leaf_items(test_config["hosts"])
-        url_items = [item for item in leaf_items if item.get("type") == "url"]
-        self.assertTrue(url_items)
-        self.assertTrue(all(item["cmd"].startswith(("http://", "https://", "file://", "ssh://")) for item in url_items))
-        self.assertTrue(any("¬_¬" in item["cmd"] for item in leaf_items))
-
-        for item in leaf_items:
-            if "inTerminal" in item:
-                self.assertIn(item["inTerminal"], SUPPORTED_WINDOW_MODES)
 
     def test_ssh_config_include_and_shuttle_comments(self):
         servers = parse_ssh_config(ROOT / "tests" / ".ssh" / "config")

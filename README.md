@@ -118,25 +118,6 @@ It can also read:
 * `/etc/ssh_config`
 * `/etc/ssh/ssh_config`
 
-Command items use `cmd` as the shell command by default. `open_in` and per-item
-`inTerminal` support `tab`, `new`, `current`, and `virtual`; invalid global
-values fall back to `tab`, while invalid per-item values are reported as config
-errors.
-
-URL items can be declared with `"type": "url"`:
-
-```json
-{
-  "name": "Shuttle Help",
-  "cmd": "https://fitztrev.github.io/shuttle",
-  "type": "url"
-}
-```
-
-Plain commands with an `http`, `https`, `file`, or `ssh` URL and no whitespace
-are also opened directly. Other `cmd` values continue to run through the
-configured terminal.
-
 ## Help
 See the [Wiki](https://github.com/fitztrev/shuttle/wiki) pages. 
 

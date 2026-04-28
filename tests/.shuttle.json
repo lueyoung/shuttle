@@ -1,6 +1,5 @@
 {
 	"terminal": "Terminal.app",
-	"open_in": "virtual",
 	"launch_at_login": false,
 	"show_ssh_config_hosts": true,
 	"hosts": [
@@ -10,13 +9,7 @@
 		},
 		{
 			"name": "Test opening URL",
-			"cmd": "http://fitztrev.github.io/shuttle",
-			"type": "url"
-		},
-		{
-			"name": "Test delimiter in command",
-			"cmd": "echo 'value ¬_¬ still belongs to the command'",
-			"inTerminal": "tab"
+			"cmd": "http://fitztrev.github.io/shuttle"
 		},
 		{
 			"name": "Main Item",

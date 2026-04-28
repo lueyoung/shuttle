@@ -6,27 +6,6 @@
 #import <Foundation/Foundation.h>
 #import "TerminalManager.h"
 
-@interface TerminalManager ()
-
-- (void)executeCommandInBackground:(NSString *)command title:(NSString *)title;
-- (void)executeCommandDirectly:(NSString *)command
-                  terminalType:(TerminalType)terminalType
-                    windowMode:(WindowMode)windowMode
-                         theme:(NSString *)theme
-                         title:(NSString *)title;
-- (void)executeInTerminalDirectly:(NSString *)command
-                       windowMode:(WindowMode)windowMode
-                            theme:(NSString *)theme
-                            title:(NSString *)title;
-- (void)executeInITermDirectly:(NSString *)command
-                    windowMode:(WindowMode)windowMode
-                         theme:(NSString *)theme
-                         title:(NSString *)title;
-- (NSString *)escapeString:(NSString *)string;
-- (BOOL)runOSAScript:(NSString *)script context:(NSString *)context;
-
-@end
-
 @implementation TerminalManager
 
 + (instancetype)sharedManager {
@@ -48,6 +27,129 @@
                       windowMode:windowMode
                            theme:theme
                            title:title];
+}
+
+- (void)executeInTerminal:(NSString *)command windowMode:(WindowMode)windowMode theme:(NSString *)theme title:(NSString *)title {
+    NSString *script;
+
+    // 准备终端的不同执行模式
+    if (windowMode == WindowModeNew) {
+        // 在新窗口中执行
+        script = [NSString stringWithFormat:@"tell application \"Terminal\"\n"
+                  "  activate\n"
+                  "  do script \"\"\n"
+                  "  set newWindow to front window\n"
+                  "  do script \"%@\" in newWindow\n"
+                  "  try\n"
+                  "    set current settings of newWindow to settings set \"%@\"\n"
+                  "  end try\n"
+                  "  set custom title of newWindow to \"%@\"\n"
+                  "end tell",
+                  [self escapeString:command],
+                  [self escapeString:theme],
+                  [self escapeString:title]];
+    } else if (windowMode == WindowModeCurrent) {
+        // 在当前窗口中执行
+        script = [NSString stringWithFormat:@"tell application \"Terminal\"\n"
+                  "  reopen\n"
+                  "  activate\n"
+                  "  do script \"%@\" in front window\n"
+                  "end tell",
+                  [self escapeString:command]];
+    } else { // WindowModeTab
+        // 在新标签页中执行
+        script = [NSString stringWithFormat:@"tell application \"Terminal\"\n"
+                  "  activate\n"
+                  "  tell application \"System Events\"\n"
+                  "    tell process \"Terminal\"\n"
+                  "      keystroke \"t\" using {command down}\n"
+                  "    end tell\n"
+                  "  end tell\n"
+                  "  do script \"%@\" in front window\n"
+                  "  set current settings of front window to settings set \"%@\"\n"
+                  "  set custom title of front window to \"%@\"\n"
+                  "end tell",
+                  [self escapeString:command],
+                  [self escapeString:theme],
+                  [self escapeString:title]];
+    }
+
+    // 使用 NSAppleScript 执行脚本，而不是依赖外部 .scpt 文件
+    NSAppleScript *appleScript = [[NSAppleScript alloc] initWithSource:script];
+    NSDictionary *error = nil;
+    [appleScript executeAndReturnError:&error];
+
+    if (error) {
+        NSLog(@"Error executing Terminal script: %@", error);
+    }
+}
+
+- (void)executeInITerm:(NSString *)command windowMode:(WindowMode)windowMode theme:(NSString *)theme title:(NSString *)title {
+    NSString *script;
+
+    // 准备 iTerm 的不同执行模式
+    if (windowMode == WindowModeNew) {
+        // 在新窗口中执行
+        script = [NSString stringWithFormat:@"tell application \"iTerm\"\n"
+                  "  activate\n"
+                  "  try\n"
+                  "    create window with profile \"%@\"\n"
+                  "  on error\n"
+                  "    create window with profile \"Default\"\n"
+                  "  end try\n"
+                  "  tell the current window\n"
+                  "    tell the current session\n"
+                  "      set name to \"%@\"\n"
+                  "      write text \"%@\"\n"
+                  "    end tell\n"
+                  "  end tell\n"
+                  "end tell",
+                  [self escapeString:theme],
+                  [self escapeString:title],
+                  [self escapeString:command]];
+    } else if (windowMode == WindowModeCurrent) {
+        // 在当前窗口中执行
+        script = [NSString stringWithFormat:@"tell application \"iTerm\"\n"
+                  "  reopen\n"
+                  "  activate\n"
+                  "  tell the current window\n"
+                  "    tell the current session\n"
+                  "      write text \"%@\"\n"
+                  "    end tell\n"
+                  "  end tell\n"
+                  "end tell",
+                  [self escapeString:command]];
+    } else { // WindowModeTab
+        // 在新标签页中执行
+        script = [NSString stringWithFormat:@"tell application \"iTerm\"\n"
+                  "  activate\n"
+                  "  tell the current window\n"
+                  "    try\n"
+                  "      create tab with profile \"%@\"\n"
+                  "    on error\n"
+                  "      create tab with profile \"Default\"\n"
+                  "    end try\n"
+                  "    tell the current tab\n"
+                  "      tell the current session\n"
+                  "        set name to \"%@\"\n"
+                  "        write text \"%@\"\n"
+                  "      end tell\n"
+                  "    end tell\n"
+                  "  end tell\n"
+                  "end tell",
+                  [self escapeString:theme],
+                  [self escapeString:title],
+                  [self escapeString:command]];
+    }
+
+    // 使用 NSAppleScript 执行脚本，而不是依赖外部 .scpt 文件
+    NSAppleScript *appleScript = [[NSAppleScript alloc] initWithSource:script];
+    NSDictionary *error = nil;
+    [appleScript executeAndReturnError:&error];
+
+    if (error) {
+        NSLog(@"Error executing iTerm script: %@", error);
+    }
 }
 
 - (void)executeCommandInBackground:(NSString *)command title:(NSString *)title {
@@ -99,6 +201,15 @@
         // 执行 iTerm 命令
         [self executeInITermDirectly:command windowMode:windowMode theme:theme title:title];
     }
+}
+
+- (NSString *)escapeShellCommand:(NSString *)command {
+    if (!command) return @"";
+
+    // 转义单引号
+    NSString *escaped = [command stringByReplacingOccurrencesOfString:@"'" withString:@"'\\''"];
+    // 确保转义其他特殊字符
+    return escaped;
 }
 
 - (BOOL)runOSAScript:(NSString *)script context:(NSString *)context {
@@ -160,27 +271,20 @@
              "    on error\n"
              "      create window with default profile\n"
              "    end try\n"
-             "    tell current window\n"
-             "      tell current session\n"
-             "        set name to \"%@\"\n"
-             "        write text \"%@\"\n"
-             "      end tell\n"
-             "    end tell\n"
-             "  else\n"
-             "    tell current window\n"
-             "      try\n"
-             "        create tab with profile %@\n"
-             "      on error\n"
-             "        create tab with default profile\n"
-             "      end try\n"
-             "      tell current session\n"
-             "        set name to \"%@\"\n"
-             "        write text \"%@\"\n"
-             "      end tell\n"
+             "  end if\n"
+             "  tell current window\n"
+             "    try\n"
+             "      create tab with profile %@\n"
+             "    on error\n"
+             "      create tab with default profile\n"
+             "    end try\n"
+             "    tell current session\n"
+             "      set name to \"%@\"\n"
+             "      write text \"%@\"\n"
              "    end tell\n"
              "  end tell\n"
              "end tell",
-             profileCreation, escapedTitle, escapedCommand, profileCreation, escapedTitle, escapedCommand];
+             profileCreation, profileCreation, escapedTitle, escapedCommand];
     } else {
         osascriptCommand = [NSString stringWithFormat:
             @"tell application \"iTerm\"\n"
