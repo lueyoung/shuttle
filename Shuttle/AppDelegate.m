@@ -138,6 +138,24 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
             name];
 }
 
+- (NSDictionary *)menuRepresentedObjectForConfig:(NSDictionary *)config displayName:(NSString *)displayName {
+    NSMutableDictionary *representedObject = [NSMutableDictionary dictionary];
+    NSString *command = [config[@"cmd"] isKindOfClass:[NSString class]] ? config[@"cmd"] : @"";
+    NSString *name = displayName ?: ([config[@"name"] isKindOfClass:[NSString class]] ? config[@"name"] : @"Shuttle");
+
+    representedObject[@"cmd"] = command;
+    representedObject[@"name"] = name;
+
+    for (NSString *key in @[@"theme", @"title", @"inTerminal"]) {
+        id value = config[key];
+        if ([value isKindOfClass:[NSString class]]) {
+            representedObject[key] = value;
+        }
+    }
+
+    return representedObject;
+}
+
 - (NSArray *)legacyMenuComponentsFromRepresentedObject:(id)representedObject {
     if (![representedObject isKindOfClass:[NSString class]]) {
         return nil;
@@ -668,26 +686,11 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
         NSDictionary* cfg = leafs[key];
         NSMenuItem* menuItem = [[NSMenuItem alloc] init];
 
-        //Get the command we are going to run in termainal
-        NSString *menuCmd = cfg[@"cmd"];
-        //Get the theme for this terminal session
-        NSString *termTheme = cfg[@"theme"];
-        //Get the name for the terminal session
-        NSString *termTitle = cfg[@"title"];
-        //Get the value of setting inTerminal
-        NSString *termWindow = cfg[@"inTerminal"];
         //Get the menu name will will use this as the title if title is null.
         [self separatorSortRemoval:cfg[@"name"]];
 
-        //Place the terminal command, theme, and title into the legacy separator-delimited string.
-        NSString *menuRepObj = [self legacyMenuRepresentedObjectWithCommand:menuCmd
-                                                                      theme:termTheme
-                                                                      title:termTitle
-                                                                     window:termWindow
-                                                                       name:menuName];
-
         [menuItem setTitle:menuName];
-        [menuItem setRepresentedObject:menuRepObj];
+        [menuItem setRepresentedObject:[self menuRepresentedObjectForConfig:cfg displayName:menuName]];
         [menuItem setAction:@selector(openHost:)];
         [m insertItem:menuItem atIndex:pos++];
         if (addSeparator) {

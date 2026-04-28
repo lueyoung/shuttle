@@ -9,6 +9,8 @@
                                                 name:(NSString *)name;
 - (NSArray *)legacyMenuComponentsFromRepresentedObject:(id)representedObject;
 - (NSArray *)dictionaryMenuComponentsFromRepresentedObject:(id)representedObject;
+- (NSArray *)menuComponentsFromRepresentedObject:(id)representedObject;
+- (void)buildMenu:(NSArray *)data addToMenu:(NSMenu *)menu;
 - (void)openHost:(NSMenuItem *)sender;
 @end
 
@@ -50,6 +52,33 @@ int main(void) {
             return 3;
         }
         RunOpenHostSmoke(delegate, dictionaryRepresentedObject, @"Smoke Dictionary");
+
+        NSMenu *menu = [[NSMenu alloc] initWithTitle:@"Smoke Menu"];
+        NSArray *menuData = @[
+            @{
+                @"name": @"[aaa]Smoke Built",
+                @"cmd": @"echo shuttle-openhost-smoke-built",
+                @"title": @"Built Smoke",
+                @"inTerminal": @"new"
+            }
+        ];
+        [delegate buildMenu:menuData addToMenu:menu];
+
+        NSMenuItem *builtItem = [menu itemWithTitle:@"Smoke Built"];
+        if (!builtItem) {
+            NSLog(@"buildMenu did not create the expected menu item");
+            return 4;
+        }
+        if (![[builtItem representedObject] isKindOfClass:[NSDictionary class]]) {
+            NSLog(@"buildMenu did not use dictionary representedObject");
+            return 5;
+        }
+        NSArray *builtComponents = [delegate menuComponentsFromRepresentedObject:[builtItem representedObject]];
+        if ([builtComponents count] < 5 || ![builtComponents[0] isEqualToString:@"echo shuttle-openhost-smoke-built"]) {
+            NSLog(@"buildMenu representedObject did not parse into the expected command");
+            return 6;
+        }
+        RunOpenHostSmoke(delegate, [builtItem representedObject], [builtItem title]);
     }
 
     return 0;
