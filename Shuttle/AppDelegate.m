@@ -8,6 +8,9 @@
 #import "TerminalManager.h"
 #import <glob.h>
 
+static NSString *const ShuttleLegacyMenuSeparator = @"¬_¬";
+static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_DRY_RUN";
+
 @implementation AppDelegate
 
 - (void) awakeFromNib {
@@ -120,6 +123,33 @@
 - (NSString *)stringValueForKey:(NSString *)key inDictionary:(NSDictionary *)dictionary defaultValue:(NSString *)defaultValue {
     id value = dictionary[key];
     return [value isKindOfClass:[NSString class]] ? [value lowercaseString] : defaultValue;
+}
+
+- (NSString *)legacyMenuRepresentedObjectWithCommand:(NSString *)command
+                                               theme:(NSString *)theme
+                                               title:(NSString *)title
+                                              window:(NSString *)window
+                                                name:(NSString *)name {
+    return [NSString stringWithFormat:@"%@%@%@%@%@%@%@%@%@",
+            command, ShuttleLegacyMenuSeparator,
+            theme, ShuttleLegacyMenuSeparator,
+            title, ShuttleLegacyMenuSeparator,
+            window, ShuttleLegacyMenuSeparator,
+            name];
+}
+
+- (NSArray *)legacyMenuComponentsFromRepresentedObject:(id)representedObject {
+    if (![representedObject isKindOfClass:[NSString class]]) {
+        return nil;
+    }
+
+    NSArray *components = [representedObject componentsSeparatedByString:ShuttleLegacyMenuSeparator];
+    return ([components count] >= 5) ? components : nil;
+}
+
+- (BOOL)isOpenHostDryRunEnabled {
+    NSString *value = [[[NSProcessInfo processInfo] environment] objectForKey:ShuttleOpenHostDryRunEnvironmentKey];
+    return [value isEqualToString:@"1"];
 }
 
 - (NSMutableArray *)mutableStringArrayFromValue:(id)value {
@@ -615,8 +645,12 @@
         //Get the menu name will will use this as the title if title is null.
         [self separatorSortRemoval:cfg[@"name"]];
 
-        //Place the terminal command, theme, and title into an comma delimited string
-        NSString *menuRepObj = [NSString stringWithFormat:@"%@¬_¬%@¬_¬%@¬_¬%@¬_¬%@", menuCmd, termTheme, termTitle, termWindow, menuName];
+        //Place the terminal command, theme, and title into the legacy separator-delimited string.
+        NSString *menuRepObj = [self legacyMenuRepresentedObjectWithCommand:menuCmd
+                                                                      theme:termTheme
+                                                                      title:termTitle
+                                                                     window:termWindow
+                                                                       name:menuName];
 
         [menuItem setTitle:menuName];
         [menuItem setRepresentedObject:menuRepObj];
@@ -670,9 +704,9 @@
     NSString *errorMessage;
     NSString *errorInfo;
 
-    //Place the comma delimited string of menu item settings into an array
-    NSArray *objectsFromJSON = [[sender representedObject] componentsSeparatedByString:(@"¬_¬")];
-    if ([objectsFromJSON count] < 5) {
+    //Place the legacy separator-delimited menu item settings into an array.
+    NSArray *objectsFromJSON = [self legacyMenuComponentsFromRepresentedObject:[sender representedObject]];
+    if (!objectsFromJSON) {
         [self throwError:NSLocalizedString(@"Invalid menu item configuration", nil)
           additionalInfo:NSLocalizedString(@"The selected item does not contain a complete command definition.", nil)
 continueOnErrorOption:NO];
@@ -758,6 +792,12 @@ continueOnErrorOption:NO];
         winMode = WindowModeCurrent;
     } else if ([terminalWindow isEqualToString:@"virtual"]) {
         winMode = WindowModeVirtual;
+    }
+
+    if ([self isOpenHostDryRunEnabled]) {
+        NSLog(@"SHUTTLE_OPENHOST_DRY_RUN command=%@ terminalType=%ld windowMode=%ld theme=%@ title=%@",
+              escapedObject, (long)termType, (long)winMode, terminalTheme, terminalTitle);
+        return;
     }
 
     // 使用 TerminalManager 执行命令
