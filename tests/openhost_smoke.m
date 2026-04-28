@@ -79,6 +79,13 @@ int main(void) {
             return 6;
         }
         RunOpenHostSmoke(delegate, [builtItem representedObject], [builtItem title]);
+
+        [delegate setValue:@" Virtual " forKey:@"openInPref"];
+        NSDictionary *globalWindowRepresentedObject = @{
+            @"cmd": @"echo shuttle-openhost-smoke-global-window",
+            @"name": @"Smoke Global Window"
+        };
+        RunOpenHostSmoke(delegate, globalWindowRepresentedObject, @"Smoke Global Window");
     }
 
     return 0;

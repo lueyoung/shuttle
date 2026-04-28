@@ -199,6 +199,36 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     return [self dictionaryMenuComponentsFromRepresentedObject:representedObject];
 }
 
+- (NSString *)normalizedWindowModeString:(NSString *)mode {
+    if (![mode isKindOfClass:[NSString class]]) {
+        return nil;
+    }
+
+    return [[mode stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] lowercaseString];
+}
+
+- (BOOL)isSupportedWindowModeString:(NSString *)mode {
+    NSString *normalizedMode = [self normalizedWindowModeString:mode];
+    return [normalizedMode isEqualToString:@"new"] ||
+           [normalizedMode isEqualToString:@"current"] ||
+           [normalizedMode isEqualToString:@"tab"] ||
+           [normalizedMode isEqualToString:@"virtual"];
+}
+
+- (WindowMode)windowModeForString:(NSString *)mode {
+    NSString *normalizedMode = [self normalizedWindowModeString:mode];
+    if ([normalizedMode isEqualToString:@"new"]) {
+        return WindowModeNew;
+    }
+    if ([normalizedMode isEqualToString:@"current"]) {
+        return WindowModeCurrent;
+    }
+    if ([normalizedMode isEqualToString:@"virtual"]) {
+        return WindowModeVirtual;
+    }
+    return WindowModeTab;
+}
+
 - (BOOL)isOpenHostDryRunEnabled {
     NSString *value = [[[NSProcessInfo processInfo] environment] objectForKey:ShuttleOpenHostDryRunEnvironmentKey];
     return [value isEqualToString:@"1"];
@@ -791,16 +821,16 @@ continueOnErrorOption:NO];
     //Check if inTerminal is null if so then use the default settings of open_in
     if( [[objectsFromJSON objectAtIndex:3] isEqualToString:@"(null)"]){
 
-        //if open_in is not "tab" or "new" then force the default of "tab".
-        if( ![openInPref isEqualToString:@"tab"] && ![openInPref isEqualToString:@"new"]){
-            openInPref = @"tab";
+        //if open_in is not supported then force the default of "tab".
+        terminalWindow = [self normalizedWindowModeString:openInPref];
+        if( ![self isSupportedWindowModeString:terminalWindow]){
+            terminalWindow = @"tab";
         }
-        //open_in was not empty or bad value we are passing the settings.
-        terminalWindow = openInPref;
+        //open_in was not empty or bad value; we are passing the settings.
     }else{
         //inTerminal is not null and overrides the default values of open_in
-        terminalWindow = [objectsFromJSON objectAtIndex:3];
-        if( ![terminalWindow isEqualToString:@"new"] && ![terminalWindow isEqualToString:@"current"] && ![terminalWindow isEqualToString:@"tab"] && ![terminalWindow isEqualToString:@"virtual"])
+        terminalWindow = [self normalizedWindowModeString:[objectsFromJSON objectAtIndex:3]];
+        if( ![self isSupportedWindowModeString:terminalWindow])
         {
             errorMessage = [NSString stringWithFormat:@"%@%@%@ %@",@"'",terminalWindow,@"'", NSLocalizedString(@"is not a valid value for inTerminal. Please fix this in the JSON file",nil)];
             errorInfo = NSLocalizedString(@"bad \"inTerminal\":\"VALUE\" in the JSON settings",nil);
@@ -822,14 +852,7 @@ continueOnErrorOption:NO];
     }
 
     // 确定窗口模式
-    WindowMode winMode = WindowModeTab; // 默认为标签页模式
-    if ([terminalWindow isEqualToString:@"new"]) {
-        winMode = WindowModeNew;
-    } else if ([terminalWindow isEqualToString:@"current"]) {
-        winMode = WindowModeCurrent;
-    } else if ([terminalWindow isEqualToString:@"virtual"]) {
-        winMode = WindowModeVirtual;
-    }
+    WindowMode winMode = [self windowModeForString:terminalWindow];
 
     if ([self isOpenHostDryRunEnabled]) {
         NSLog(@"SHUTTLE_OPENHOST_DRY_RUN command=%@ terminalType=%ld windowMode=%ld theme=%@ title=%@",

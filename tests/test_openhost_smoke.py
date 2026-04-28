@@ -51,6 +51,8 @@ class OpenHostSmokeTests(unittest.TestCase):
         self.assertIn("echo shuttle-openhost-smoke-legacy", output)
         self.assertIn("echo shuttle-openhost-smoke-dictionary", output)
         self.assertIn("echo shuttle-openhost-smoke-built", output)
+        self.assertIn("echo shuttle-openhost-smoke-global-window", output)
+        self.assertIn("windowMode=3", output)
 
 
 if __name__ == "__main__":
