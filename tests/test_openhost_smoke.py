@@ -48,7 +48,8 @@ class OpenHostSmokeTests(unittest.TestCase):
         output = result.stdout + result.stderr
         self.assertEqual(result.returncode, 0, output)
         self.assertIn("SHUTTLE_OPENHOST_DRY_RUN", output)
-        self.assertIn("echo shuttle-openhost-smoke", output)
+        self.assertIn("echo shuttle-openhost-smoke-legacy", output)
+        self.assertIn("echo shuttle-openhost-smoke-dictionary", output)
 
 
 if __name__ == "__main__":

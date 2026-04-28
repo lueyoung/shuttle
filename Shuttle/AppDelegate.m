@@ -147,6 +147,40 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     return ([components count] >= 5) ? components : nil;
 }
 
+- (NSString *)legacyMenuComponentValue:(id)value {
+    return [value isKindOfClass:[NSString class]] ? value : @"(null)";
+}
+
+- (NSArray *)dictionaryMenuComponentsFromRepresentedObject:(id)representedObject {
+    if (![representedObject isKindOfClass:[NSDictionary class]]) {
+        return nil;
+    }
+
+    NSDictionary *dictionary = representedObject;
+    id command = dictionary[@"cmd"];
+    id name = dictionary[@"name"];
+    if (![command isKindOfClass:[NSString class]] || ![name isKindOfClass:[NSString class]]) {
+        return nil;
+    }
+
+    return @[
+        [self legacyMenuComponentValue:command],
+        [self legacyMenuComponentValue:dictionary[@"theme"]],
+        [self legacyMenuComponentValue:dictionary[@"title"]],
+        [self legacyMenuComponentValue:dictionary[@"inTerminal"]],
+        [self legacyMenuComponentValue:name]
+    ];
+}
+
+- (NSArray *)menuComponentsFromRepresentedObject:(id)representedObject {
+    NSArray *legacyComponents = [self legacyMenuComponentsFromRepresentedObject:representedObject];
+    if (legacyComponents) {
+        return legacyComponents;
+    }
+
+    return [self dictionaryMenuComponentsFromRepresentedObject:representedObject];
+}
+
 - (BOOL)isOpenHostDryRunEnabled {
     NSString *value = [[[NSProcessInfo processInfo] environment] objectForKey:ShuttleOpenHostDryRunEnvironmentKey];
     return [value isEqualToString:@"1"];
@@ -704,8 +738,8 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     NSString *errorMessage;
     NSString *errorInfo;
 
-    //Place the legacy separator-delimited menu item settings into an array.
-    NSArray *objectsFromJSON = [self legacyMenuComponentsFromRepresentedObject:[sender representedObject]];
+    //Place the menu item settings into the legacy component array shape.
+    NSArray *objectsFromJSON = [self menuComponentsFromRepresentedObject:[sender representedObject]];
     if (!objectsFromJSON) {
         [self throwError:NSLocalizedString(@"Invalid menu item configuration", nil)
           additionalInfo:NSLocalizedString(@"The selected item does not contain a complete command definition.", nil)
