@@ -214,12 +214,23 @@
 
 - (BOOL)runOSAScript:(NSString *)script context:(NSString *)context {
     NSTask *osascriptTask = [[NSTask alloc] init];
+    NSPipe *errorPipe = [NSPipe pipe];
     [osascriptTask setLaunchPath:@"/usr/bin/osascript"];
     [osascriptTask setArguments:@[@"-e", script]];
+    [osascriptTask setStandardError:errorPipe];
 
     NSError *error = nil;
     if (![osascriptTask launchAndReturnError:&error]) {
         NSLog(@"Error executing %@ AppleScript: %@", context, error);
+        return NO;
+    }
+
+    [osascriptTask waitUntilExit];
+
+    if ([osascriptTask terminationStatus] != 0) {
+        NSData *errorData = [[errorPipe fileHandleForReading] readDataToEndOfFile];
+        NSString *errorOutput = [[NSString alloc] initWithData:errorData encoding:NSUTF8StringEncoding];
+        NSLog(@"Error executing %@ AppleScript: %@", context, errorOutput);
         return NO;
     }
 
@@ -306,48 +317,88 @@
     NSString *osascriptCommand = nil;
 
     if (windowMode == WindowModeNew) {
-        // Nouveau Terminal + commande + thème + titre
         osascriptCommand = [NSString stringWithFormat:
             @"tell application \"Terminal\"\n"
-             "  activate\n"
-             "  do script \"\"\n"
-             "  set newWindow to front window\n"
-             "  do script \"%@\" in newWindow\n"
+             "  do script \"%@\"\n"
+             "  set targetWindow to front window\n"
              "  try\n"
-             "    set current settings of newWindow to settings set \"%@\"\n"
+             "    set current settings of targetWindow to settings set \"%@\"\n"
              "  end try\n"
-             "  set custom title of newWindow to \"%@\"\n"
-             "end tell",
+             "  try\n"
+             "    set custom title of targetWindow to \"%@\"\n"
+             "  end try\n"
+             "  activate\n"
+             "end tell\n"
+             "try\n"
+             "tell application \"System Events\"\n"
+             "  tell process \"Terminal\"\n"
+             "    set frontmost to true\n"
+             "  end tell\n"
+             "end tell\n"
+             "end try",
              escapedCommand, escapedTheme, escapedTitle];
 
     } else if (windowMode == WindowModeTab) {
-        // Onglet + commande + thème + titre
         osascriptCommand = [NSString stringWithFormat:
             @"tell application \"Terminal\"\n"
-             "  activate\n"
-             "  tell application \"System Events\"\n"
-             "    tell process \"Terminal\"\n"
-             "      keystroke \"t\" using {command down}\n"
+             "  if (count of windows) = 0 then\n"
+             "    do script \"%@\"\n"
+             "  else\n"
+             "    activate\n"
+             "    set openedTab to false\n"
+             "    try\n"
+             "    tell application \"System Events\"\n"
+             "      tell process \"Terminal\"\n"
+             "        set frontmost to true\n"
+             "        keystroke \"t\" using {command down}\n"
+             "      end tell\n"
              "    end tell\n"
-             "  end tell\n"
-             "  delay 0.2\n"
-             "  do script \"%@\" in front window\n"
+             "    set openedTab to true\n"
+             "    end try\n"
+             "    delay 0.2\n"
+             "    if openedTab then\n"
+             "      do script \"%@\" in front window\n"
+             "    else\n"
+             "      do script \"%@\"\n"
+             "    end if\n"
+             "  end if\n"
+             "  set targetWindow to front window\n"
              "  try\n"
-             "    set current settings of front window to settings set \"%@\"\n"
+             "    set current settings of targetWindow to settings set \"%@\"\n"
              "  end try\n"
-             "  set custom title of front window to \"%@\"\n"
-             "end tell",
-             escapedCommand, escapedTheme, escapedTitle];
+             "  try\n"
+             "    set custom title of targetWindow to \"%@\"\n"
+             "  end try\n"
+             "  activate\n"
+             "end tell\n"
+             "try\n"
+             "tell application \"System Events\"\n"
+             "  tell process \"Terminal\"\n"
+             "    set frontmost to true\n"
+             "  end tell\n"
+             "end tell\n"
+             "end try",
+             escapedCommand, escapedCommand, escapedCommand, escapedTheme, escapedTitle];
 
     } else {
-        // Mode actuel (dans fenêtre ou onglet actif)
         osascriptCommand = [NSString stringWithFormat:
             @"tell application \"Terminal\"\n"
-             "  reopen\n"
+             "  if (count of windows) = 0 then\n"
+             "    do script \"%@\"\n"
+             "  else\n"
+             "    activate\n"
+             "    do script \"%@\" in front window\n"
+             "  end if\n"
              "  activate\n"
-             "  do script \"%@\" in front window\n"
-             "end tell",
-             escapedCommand];
+             "end tell\n"
+             "try\n"
+             "tell application \"System Events\"\n"
+             "  tell process \"Terminal\"\n"
+             "    set frontmost to true\n"
+             "  end tell\n"
+             "end tell\n"
+             "end try",
+             escapedCommand, escapedCommand];
     }
 
     [self runOSAScript:osascriptCommand context:@"Terminal"];
