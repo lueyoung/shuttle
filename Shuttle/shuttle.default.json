@@ -8,9 +8,8 @@
   "editor": "default",
   "launch_at_login": false,
   "terminal": "Terminal.app",
-  "iTerm_version": "nightly",
   "default_theme": "Homebrew",
-  "open_in": "new",  
+  "open_in": "new",
   "show_ssh_config_hosts": false,
   "ssh_config_ignore_hosts": [  ],
   "ssh_config_ignore_keywords": [  ],
@@ -57,4 +56,4 @@
   ]
 }
 
-        
+

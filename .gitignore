@@ -3,7 +3,10 @@
 .claude
 
 # Xcode
+.deriveddata/
 build/*
+DerivedData/
+products/
 *.pbxuser
 !default.pbxuser
 *.mode1v3

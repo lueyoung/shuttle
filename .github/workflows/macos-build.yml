@@ -1,0 +1,25 @@
+name: macOS Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate config fixtures
+        run: python3 tests/test_config_fixtures.py
+
+      - name: Build Shuttle
+        env:
+          SHUTTLE_DERIVED_DATA_PATH: ${{ runner.temp }}/shuttle-deriveddata
+          SHUTTLE_PRODUCTS_DIR: ${{ runner.temp }}/shuttle-products
+        run: ./scripts/build-debug.sh
+
+      - name: Verify build leaves repository clean
+        run: git diff --exit-code

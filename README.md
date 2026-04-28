@@ -8,6 +8,7 @@ Status:
 
 * Builds locally with `xcodebuild` on Apple Silicon
 * Produces app bundles inside the project at `products/Debug/Shuttle.app`
+* Keeps generated build output out of git
 * Includes recent compatibility fixes for terminal launching and launch-at-login
 
 ## This Fork
@@ -19,6 +20,7 @@ Notable differences in this fork:
 * Apple Silicon friendly build setup
 * Updated local `xcodebuild` workflow
 * App output goes to the project-local `products/` directory
+* Generated app bundles and DerivedData are ignored; release artifacts should be attached to GitHub Releases
 * Ongoing maintenance by Young Lue
 
 ## Maintainer
@@ -82,6 +84,24 @@ Intermediate build data is stored in:
 ```bash
 .deriveddata/
 ```
+
+You can override local build output paths when needed:
+
+```bash
+SHUTTLE_PRODUCTS_DIR=/tmp/shuttle-products \
+SHUTTLE_DERIVED_DATA_PATH=/tmp/shuttle-deriveddata \
+./scripts/build-debug.sh
+```
+
+## Test
+
+Validate config fixtures with:
+
+```bash
+python3 tests/test_config_fixtures.py
+```
+
+The GitHub Actions workflow runs the fixture validation and a macOS build.
 
 ## Configuration
 

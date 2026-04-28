@@ -7,8 +7,7 @@
 
 typedef NS_ENUM(NSInteger, TerminalType) {
     TerminalTypeDefault,
-    TerminalTypeITerm,
-    TerminalTypeITermNightly
+    TerminalTypeITerm
 };
 
 typedef NS_ENUM(NSInteger, WindowMode) {

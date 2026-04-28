@@ -1,2 +1,0 @@
-Target dependency graph (1 target)
-Target 'Shuttle' in project 'Shuttle' (no dependencies)
