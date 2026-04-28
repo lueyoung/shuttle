@@ -723,6 +723,7 @@
         [menuItem setTitle:menuName];
         [menuItem setRepresentedObject:[self representedObjectForMenuItemConfig:cfg displayName:menuName]];
         [menuItem setAction:@selector(openHost:)];
+        [menuItem setTarget:self];
         [m insertItem:menuItem atIndex:pos++];
         if (addSeparator) {
             [m insertItem:[NSMenuItem separatorItem] atIndex:pos++];
@@ -1022,6 +1023,7 @@ continueOnErrorOption:NO];
 
         //set the command for the menu item
         [editorMenu setRepresentedObject:editorRepObj];
+        [editorMenu setTarget:self];
 
         //open the JSON file in the terminal editor.
         [self openHost:editorMenu];
