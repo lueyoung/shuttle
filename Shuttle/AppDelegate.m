@@ -849,12 +849,6 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     }
 
     // 使用 TerminalManager 执行命令
-    //[[TerminalManager sharedManager] executeCommand:escapedObject
-    //                                  terminalType:termType
-    //                                  windowMode:winMode
-    //                                       theme:terminalTheme
-    //                                       title:terminalTitle];
-
     [[TerminalManager sharedManager] executeCommandDirectly:escapedObject
                                          terminalType:termType
                                            windowMode:winMode

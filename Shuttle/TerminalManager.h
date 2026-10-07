@@ -21,13 +21,6 @@ typedef NS_ENUM(NSInteger, WindowMode) {
 
 + (instancetype)sharedManager;
 
-// 在终端中执行命令
-- (void)executeCommand:(NSString *)command
-           terminalType:(TerminalType)terminalType
-             windowMode:(WindowMode)windowMode
-                  theme:(NSString *)theme
-                  title:(NSString *)title;
-
 // 在后台执行命令（使用 NSTask 替代 screen）
 - (void)executeCommandInBackground:(NSString *)command title:(NSString *)title;
 
@@ -48,7 +41,5 @@ typedef NS_ENUM(NSInteger, WindowMode) {
                     windowMode:(WindowMode)windowMode
                          theme:(NSString *)theme
                          title:(NSString *)title;
-
-- (NSString *)escapeShellCommand:(NSString *)command;
 
 @end
