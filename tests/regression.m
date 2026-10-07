@@ -119,6 +119,43 @@
 }
 @end
 
+// Answers TerminalManager's AppleScript and process checks with canned values, so the
+// Terminal cold-start decisions can be checked without launching Terminal.
+@interface ScriptedTerminalManager : TerminalManager
+@property (nonatomic) BOOL terminalRunning;
+@property (nonatomic, copy) NSString *coldStartResult;
+@property (nonatomic) BOOL startupShellIsBare;
+@property (nonatomic, readonly) NSMutableArray<NSString *> *scripts;
+@end
+
+@implementation ScriptedTerminalManager
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _scripts = [NSMutableArray array];
+    }
+    return self;
+}
+
+- (BOOL)isApplicationRunning:(NSString *)bundleIdentifier {
+    return self.terminalRunning;
+}
+
+- (NSString *)stringFromOSAScript:(NSString *)script context:(NSString *)context {
+    [self.scripts addObject:script];
+    return self.coldStartResult;
+}
+
+- (BOOL)runOSAScript:(NSString *)script context:(NSString *)context {
+    [self.scripts addObject:script];
+    return YES;
+}
+
+- (BOOL)waitForBareShellOnTTY:(NSString *)ttyPath {
+    return self.startupShellIsBare;
+}
+@end
+
 static const NSUInteger StaticMenuItemCount = 4;
 static NSMutableArray<NSString *> *failures;
 static NSMutableArray<NSString *> *temporaryDirectories;
@@ -673,6 +710,36 @@ static void TerminalLaunchRunsOffMainThreadInOrder(void) {
     }
 }
 
+static NSArray<NSString *> *TerminalScriptsFor(BOOL running, NSString *coldStartResult, BOOL bareShell) {
+    ScriptedTerminalManager *manager = [[ScriptedTerminalManager alloc] init];
+    manager.terminalRunning = running;
+    manager.coldStartResult = coldStartResult;
+    manager.startupShellIsBare = bareShell;
+    [manager executeInTerminalDirectly:@"echo cold" windowMode:WindowModeTab theme:@"Basic" title:@"Cold"];
+    return manager.scripts;
+}
+
+static void TerminalColdStartReusesStartupWindow(void) {
+    NSArray *scripts = TerminalScriptsFor(YES, nil, NO);
+    EXPECT([scripts count] == 1 && ![scripts[0] containsString:@"repeat 30 times"] && [scripts[0] containsString:@"keystroke \"t\""],
+           @"running Terminal: expected only the usual new-tab script, got %@", scripts);
+
+    scripts = TerminalScriptsFor(NO, @"created|", NO);
+    EXPECT([scripts count] == 1 && [scripts[0] containsString:@"repeat 30 times"],
+           @"Terminal without a startup window: expected only the cold-start script, got %@", scripts);
+
+    scripts = TerminalScriptsFor(NO, @"1|/dev/ttys042", YES);
+    EXPECT([scripts count] == 2 && [scripts[1] containsString:@"if tty of t is \"/dev/ttys042\" then"] &&
+           [scripts[1] containsString:@"do script \"echo cold\" in t"],
+           @"bare startup window: expected the command to run in it, got %@", scripts);
+
+    for (NSArray *startup in @[@[@"1|/dev/ttys042", @NO], @[@"3|/dev/ttys042", @YES]]) {
+        scripts = TerminalScriptsFor(NO, startup[0], [startup[1] boolValue]);
+        EXPECT([scripts count] == 2 && [scripts[1] containsString:@"keystroke \"t\""],
+               @"startup window %@ (bare shell %@) is in use: expected the usual new-tab script, got %@", startup[0], startup[1], scripts);
+    }
+}
+
 #pragma mark - Runner
 
 typedef struct {
@@ -703,6 +770,7 @@ static const RegressionCase cases[] = {
     {"editor_command_keeps_editor_and_quotes_path", EditorCommandKeepsEditorAndQuotesPath},
     {"configure_runs_editor_command_through_open_host", ConfigureRunsEditorCommandThroughOpenHost},
     {"terminal_launch_runs_off_main_thread_in_order", TerminalLaunchRunsOffMainThreadInOrder},
+    {"terminal_cold_start_reuses_startup_window", TerminalColdStartReusesStartupWindow},
 };
 
 static BOOL RunCase(RegressionCase regressionCase) {

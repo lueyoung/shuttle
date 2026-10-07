@@ -178,6 +178,25 @@
     return sawProcess;
 }
 
+// 新 shell 启动后头一秒 rc 脚本的子进程（docker/python 等）还在 tty 上，
+// 等它安定下来再判断；一直安定不下来的是恢复的旧会话或正在用的会话，不能动
+- (BOOL)waitForBareShellOnTTY:(NSString *)ttyPath {
+    if ([ttyPath length] == 0) {
+        return NO;
+    }
+    for (int attempt = 0; attempt < 10; attempt++) {
+        if ([self isBareShellOnTTY:ttyPath]) {
+            return YES;
+        }
+        usleep(200000);
+    }
+    return NO;
+}
+
+- (BOOL)isApplicationRunning:(NSString *)bundleIdentifier {
+    return [[NSRunningApplication runningApplicationsWithBundleIdentifier:bundleIdentifier] count] > 0;
+}
+
 // iTerm 未运行时的处理：先让 iTerm 启动并等它自己的启动窗口/会话恢复完成，
 // 再决定是直接建主题窗口，还是在启动窗口里建主题 tab。直接在脚本里 create window
 // 会和 iTerm 自己的启动窗口叠加，出现两个窗口（旧 bug）。
@@ -220,20 +239,9 @@
         return;
     }
 
-    // 启动窗口只有一个 tab 且是干净的空 shell 时直接复用它执行命令（不会多出 tab）。
-    // 新 shell 启动后头一秒 rc 脚本的子进程（docker/python 等）还在 tty 上，
-    // 等它安定下来再判断；一直安定不下来的是恢复的旧会话，不能动
+    // 启动窗口只有一个 tab 且是干净的空 shell 时直接复用它执行命令（不会多出 tab）
     NSString *startupTTY = parts[1];
-    BOOL reuseStartupTab = NO;
-    if ([parts[0] integerValue] == 1 && [startupTTY length] > 0) {
-        for (int attempt = 0; attempt < 10; attempt++) {
-            if ([self isBareShellOnTTY:startupTTY]) {
-                reuseStartupTab = YES;
-                break;
-            }
-            usleep(200000);
-        }
-    }
+    BOOL reuseStartupTab = [parts[0] integerValue] == 1 && [self waitForBareShellOnTTY:startupTTY];
 
     if (reuseStartupTab) {
         NSString *reuseScript = [NSString stringWithFormat:
@@ -282,8 +290,7 @@
     NSString *escapedTitle = [self escapeString:title ?: @"Shuttle"];
     NSString *profileCreation = [NSString stringWithFormat:@"\"%@\"", escapedTheme];
 
-    BOOL wasRunning = [[NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.googlecode.iterm2"] count] > 0;
-    if (!wasRunning) {
+    if (![self isApplicationRunning:@"com.googlecode.iterm2"]) {
         // 冷启动时窗口/tab 模式没有区别：都只需要得到一个带命令的会话
         [self coldStartITermWithProfile:profileCreation title:escapedTitle command:escapedCommand];
         return;
@@ -352,10 +359,79 @@
     [self runOSAScript:osascriptCommand context:@"iTerm"];
 }
 
+// Terminal 未运行时的处理，和 iTerm 冷启动同一个问题：Terminal 启动时自己会开一个窗口，
+// 脚本里直接 do script 会再开一个，留下一个空窗口。先等启动窗口出现，它只有一个 tab
+// 且是干净的空 shell 时直接在里面执行命令。返回 NO 表示启动窗口不能复用，
+// 交给正常流程按窗口模式处理
+- (BOOL)coldStartTerminalWithTheme:(NSString *)escapedTheme title:(NSString *)escapedTitle command:(NSString *)escapedCommand {
+    NSString *script = [NSString stringWithFormat:
+        @"tell application \"Terminal\"\n"
+         "  activate\n"
+         "  repeat 30 times\n"
+         "    if (count of windows) > 0 then exit repeat\n"
+         "    delay 0.1\n"
+         "  end repeat\n"
+         "  if (count of windows) = 0 then\n"
+         "    do script \"%@\"\n"
+         "    set targetWindow to front window\n"
+         "    try\n"
+         "      set current settings of targetWindow to settings set \"%@\"\n"
+         "    end try\n"
+         "    try\n"
+         "      set custom title of targetWindow to \"%@\"\n"
+         "    end try\n"
+         "    return \"created|\"\n"
+         "  end if\n"
+         "  set w to front window\n"
+         "  set ttyName to \"\"\n"
+         "  try\n"
+         "    set ttyName to (tty of selected tab of w)\n"
+         "  end try\n"
+         "  return ((count of tabs of w) as text) & \"|\" & ttyName\n"
+         "end tell",
+         escapedCommand, escapedTheme, escapedTitle];
+
+    NSString *result = [self stringFromOSAScript:script context:@"Terminal"];
+    if ([result isEqualToString:@"created|"]) {
+        return YES;
+    }
+
+    NSArray *parts = [result componentsSeparatedByString:@"|"];
+    if ([parts count] != 2 || [parts[0] integerValue] != 1 || ![self waitForBareShellOnTTY:parts[1]]) {
+        return NO;
+    }
+
+    NSString *reuseScript = [NSString stringWithFormat:
+        @"tell application \"Terminal\"\n"
+         "  repeat with w in windows\n"
+         "    repeat with t in tabs of w\n"
+         "      if tty of t is \"%@\" then\n"
+         "        do script \"%@\" in t\n"
+         "        try\n"
+         "          set current settings of t to settings set \"%@\"\n"
+         "        end try\n"
+         "        try\n"
+         "          set custom title of t to \"%@\"\n"
+         "        end try\n"
+         "        return\n"
+         "      end if\n"
+         "    end repeat\n"
+         "  end repeat\n"
+         "end tell",
+         parts[1], escapedCommand, escapedTheme, escapedTitle];
+    [self runOSAScript:reuseScript context:@"Terminal"];
+    return YES;
+}
+
 - (void)executeInTerminalDirectly:(NSString *)command windowMode:(WindowMode)windowMode theme:(NSString *)theme title:(NSString *)title {
     NSString *escapedCommand = [self escapeString:command];
     NSString *escapedTheme = [self escapeString:theme ?: @"Basic"];
     NSString *escapedTitle = [self escapeString:title ?: @"Shuttle"];
+
+    if (![self isApplicationRunning:@"com.apple.Terminal"] &&
+        [self coldStartTerminalWithTheme:escapedTheme title:escapedTitle command:escapedCommand]) {
+        return;
+    }
 
     NSString *osascriptCommand = nil;
 
