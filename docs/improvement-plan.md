@@ -19,7 +19,7 @@
 - [ ] 2.5 终端启动移出主线程
 - [x] 2.6 LaunchAtLoginController 泄漏（仅 D1 选 12.0 时）
 - [x] 3.1 清理 TerminalManager 死代码
-- [ ] 3.2 清理 AppDelegate 死代码与旧系统分支
+- [x] 3.2 清理 AppDelegate 死代码与旧系统分支
 - [ ] 3.3 清理无用资源与脚本
 - [ ] 4.1 本地化补全
 - [ ] 4.2 Release 构建脚本

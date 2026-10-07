@@ -14,7 +14,6 @@
     IBOutlet NSArrayController *arrayController;
 
     NSImage *regularIcon;
-    NSImage *altIcon;
     
     NSStatusItem *statusItem;
     NSString *shuttleConfigFile;
@@ -43,7 +42,6 @@
     
     //Used to gather ssh config settings
     NSMutableArray* shuttleHosts;
-    NSMutableArray* shuttleHostsAlt;
     NSMutableArray* ignoreHosts;
     NSMutableArray* ignoreKeywords;
     

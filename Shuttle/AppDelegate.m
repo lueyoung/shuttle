@@ -71,30 +71,15 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     }
 
     // Define Icons
-    //only regular icon is needed for 10.10 and higher. OS X changes the icon for us.
+    // A template image lets macOS style the icon for light and dark menu bars.
     regularIcon = [NSImage imageNamed:@"StatusIcon"];
-    altIcon = [NSImage imageNamed:@"StatusIconAlt"];
+    regularIcon.template = YES;
 
     // Create the status bar item
     statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSSquareStatusItemLength];
     [statusItem setMenu:menu];
     if (statusItem.button) {
         statusItem.button.image = regularIcon;
-    }
-
-    // Check for AppKit Version, add support for darkmode if > 10.9
-    BOOL oldAppKitVersion = (floor(NSAppKitVersionNumber) <= 1265);
-
-    // 10.10 or higher, dont load the alt image let OS X style it.
-    if (!oldAppKitVersion)
-    {
-        regularIcon.template = YES;
-    }
-    // Load the alt image for OS X < 10.10
-    else{
-        if (statusItem.button) {
-            statusItem.button.alternateImage = altIcon;
-        }
     }
 
     launchAtLoginController = [[LaunchAtLoginController alloc] init];
@@ -521,8 +506,7 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
         NSError *jsonAltError = nil;
         NSDictionary *jsonAlt = nil;
         if ([self loadJSONDictionaryAtPath:shuttleAltConfigFile into:&jsonAlt error:&jsonAltError]) {
-            shuttleHostsAlt = [self validatedHostsFromJSON:jsonAlt sourceName:@"alternate config"];
-            [shuttleHosts addObjectsFromArray:shuttleHostsAlt];
+            [shuttleHosts addObjectsFromArray:[self validatedHostsFromJSON:jsonAlt sourceName:@"alternate config"]];
         } else {
             [self insertDisabledMenuItemWithTitle:NSLocalizedString(@"Error parsing alternate config", nil)];
             NSLog(@"Error parsing alternate config %@: %@", shuttleAltConfigFile, jsonAltError);
@@ -854,61 +838,6 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
                                            windowMode:winMode
                                                 theme:terminalTheme
                                                 title:terminalTitle];
-}
-
-- (void) runScript:(NSString *)scriptPath handler:(NSString*)handlerName parameters:(NSArray*)parametersInArray {
-    //special thanks to stackoverflow.com/users/316866/leandro for pointing me the right direction.
-    //see http://goo.gl/olcpaX
-    NSAppleScript           * appleScript;
-    NSAppleEventDescriptor  * thisApplication, *containerEvent;
-    NSURL                   * pathURL = [NSURL fileURLWithPath:scriptPath];
-
-    NSDictionary * appleScriptCreationError = nil;
-    appleScript = [[NSAppleScript alloc] initWithContentsOfURL:pathURL error:&appleScriptCreationError];
-
-    if (handlerName && [handlerName length])
-    {
-        /* If we have a handlerName (and potentially parameters), we build
-         * an NSAppleEvent to execute the script. */
-
-        //Get a descriptor
-        int pid = [[NSProcessInfo processInfo] processIdentifier];
-        thisApplication = [NSAppleEventDescriptor descriptorWithDescriptorType:typeKernelProcessID
-                                                                         bytes:&pid
-                                                                        length:sizeof(pid)];
-
-        //Create the container event
-
-        //We need these constants from the Carbon OpenScripting framework, but we don't actually need Carbon.framework...
-#define kASAppleScriptSuite 'ascr'
-#define kASSubroutineEvent  'psbr'
-#define keyASSubroutineName 'snam'
-        containerEvent = [NSAppleEventDescriptor appleEventWithEventClass:kASAppleScriptSuite
-                                                                  eventID:kASSubroutineEvent
-                                                         targetDescriptor:thisApplication
-                                                                 returnID:kAutoGenerateReturnID
-                                                            transactionID:kAnyTransactionID];
-        //Set the target handler
-        [containerEvent setParamDescriptor:[NSAppleEventDescriptor descriptorWithString:handlerName]
-                                forKeyword:keyASSubroutineName];
-
-        //Pass parameters - parameters is expecting an NSArray with only NSString objects
-        if ([parametersInArray count])
-        {
-
-            NSAppleEventDescriptor  *arguments = [[NSAppleEventDescriptor alloc] initListDescriptor];
-            NSString                *object;
-
-            for (object in parametersInArray) {
-                [arguments insertDescriptor:[NSAppleEventDescriptor descriptorWithString:object]
-                                    atIndex:([arguments numberOfItems] +1)];
-            }
-
-            [containerEvent setParamDescriptor:arguments forKeyword:keyDirectObject];
-        }
-        //Execute the event
-        [appleScript executeAppleEvent:containerEvent error:nil];
-    }
 }
 
 - (void)showWarning:(NSString *)message additionalInfo:(NSString *)info {
