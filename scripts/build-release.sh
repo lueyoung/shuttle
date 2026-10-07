@@ -17,3 +17,5 @@ xcodebuild \
   -derivedDataPath "$DERIVED_DATA_PATH" \
   CONFIGURATION_BUILD_DIR="$PRODUCTS_DIR" \
   build
+
+"$PROJECT_DIR/scripts/sign-local.sh" "$PRODUCTS_DIR/Shuttle.app"

@@ -95,6 +95,16 @@ SHUTTLE_DERIVED_DATA_PATH=/tmp/shuttle-deriveddata \
 
 `./scripts/build-release.sh` builds the Release configuration into `products/Release/` and accepts the same overrides.
 
+### Keep macOS permissions across rebuilds
+
+Local builds are signed ad hoc, and an ad-hoc signature changes with every build, so macOS asks again whether Shuttle may control iTerm or Terminal after each reinstall. To avoid that, create a local signing certificate once:
+
+```bash
+./scripts/create-signing-identity.sh
+```
+
+It adds a self-signed "Shuttle Local Signing" code signing certificate to your login keychain; it is not marked as trusted and nothing else changes. Both build scripts then sign Shuttle with it (set `SHUTTLE_CODE_SIGN_IDENTITY` to use another identity). macOS asks for the permission once more for the first build signed this way and keeps it for later builds. Without the certificate, as in CI, builds stay ad-hoc signed.
+
 ## Test
 
 Run the test suites with:
