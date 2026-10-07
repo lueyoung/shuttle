@@ -753,9 +753,8 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     //Place the menu item settings into the legacy component array shape.
     NSArray *objectsFromJSON = [self menuComponentsFromRepresentedObject:[sender representedObject]];
     if (!objectsFromJSON) {
-        [self throwError:NSLocalizedString(@"Invalid menu item configuration", nil)
-          additionalInfo:NSLocalizedString(@"The selected item does not contain a complete command definition.", nil)
-continueOnErrorOption:NO];
+        [self showWarning:NSLocalizedString(@"Invalid menu item configuration", nil)
+           additionalInfo:NSLocalizedString(@"The selected item does not contain a complete command definition.", nil)];
         return;
     }
 
@@ -813,7 +812,8 @@ continueOnErrorOption:NO];
         {
             errorMessage = [NSString stringWithFormat:@"%@%@%@ %@",@"'",terminalWindow,@"'", NSLocalizedString(@"is not a valid value for inTerminal. Please fix this in the JSON file",nil)];
             errorInfo = NSLocalizedString(@"bad \"inTerminal\":\"VALUE\" in the JSON settings",nil);
-            [self throwError:errorMessage additionalInfo:errorInfo continueOnErrorOption:NO];
+            [self showWarning:errorMessage additionalInfo:errorInfo];
+            return;
         }
     }
 
@@ -968,25 +968,6 @@ continueOnErrorOption:NO];
         return;
     }
 
-}
-
--(void) throwError:(NSString*)errorMessage additionalInfo:(NSString*)errorInfo continueOnErrorOption:(BOOL)continueOption {
-    NSAlert *alert = [[NSAlert alloc] init];
-    [alert setInformativeText:errorInfo];
-    [alert setMessageText:errorMessage];
-    [alert setAlertStyle:NSAlertStyleWarning];
-
-    if (continueOption) {
-        [alert addButtonWithTitle:NSLocalizedString(@"Quit",nil)];
-        [alert addButtonWithTitle:NSLocalizedString(@"Continue",nil)];
-
-    }else{
-        [alert addButtonWithTitle:NSLocalizedString(@"Quit",nil)];
-    }
-
-    if ([alert runModal] == NSAlertFirstButtonReturn) {
-        [NSApp terminate:NSApp];
-    }
 }
 
 - (IBAction)showExportPanel:(id)sender {

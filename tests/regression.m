@@ -15,16 +15,40 @@
 - (void)buildMenu:(NSArray *)data addToMenu:(NSMenu *)menu;
 - (NSDictionary *)parseSSHConfig:(NSString *)filepath;
 - (NSArray<NSString *> *)defaultSSHConfigFiles;
+- (void)openHost:(NSMenuItem *)sender;
+- (void)showWarning:(NSString *)message additionalInfo:(NSString *)info;
+- (BOOL)isOpenHostDryRunEnabled;
 @end
 
-// Reads ssh config from the files a case provides instead of the real ones on this machine.
+// Reads ssh config from the files a case provides instead of the real ones on this machine,
+// records warnings instead of showing alerts, and never launches a terminal.
 @interface RegressionAppDelegate : AppDelegate
 @property (nonatomic, copy) NSArray<NSString *> *sshConfigFiles;
+@property (nonatomic, readonly) NSMutableArray<NSString *> *warnings;
+@property (nonatomic) BOOL reachedLaunch;
 @end
 
 @implementation RegressionAppDelegate
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _warnings = [NSMutableArray array];
+    }
+    return self;
+}
+
 - (NSArray<NSString *> *)defaultSSHConfigFiles {
     return self.sshConfigFiles ?: @[];
+}
+
+- (void)showWarning:(NSString *)message additionalInfo:(NSString *)info {
+    [self.warnings addObject:message];
+}
+
+// openHost: asks this right before handing the command to TerminalManager.
+- (BOOL)isOpenHostDryRunEnabled {
+    self.reachedLaunch = YES;
+    return YES;
 }
 @end
 
@@ -401,6 +425,38 @@ static void AlternateConfigGroupsMergeWithMainConfig(void) {
     EXPECT([workTitles isEqualToArray:(@[@"alt-host", @"main-host"])], @"main and alternate Work groups not merged: %@", workTitles);
 }
 
+static NSMenuItem *MenuItemWithPayload(id representedObject) {
+    NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:@"Item" action:@selector(openHost:) keyEquivalent:@""];
+    [item setRepresentedObject:representedObject];
+    return item;
+}
+
+static RegressionAppDelegate *MakeLaunchDelegate(void) {
+    RegressionAppDelegate *delegate = [[RegressionAppDelegate alloc] init];
+    [delegate setValue:@"terminal.app" forKey:@"terminalPref"];
+    [delegate setValue:@"tab" forKey:@"openInPref"];
+    return delegate;
+}
+
+static void ConfigErrorsWarnWithoutQuitting(void) {
+    NSDictionary *payloads = @{
+        @"invalid inTerminal": @{@"cmd": @"echo bad-window", @"name": @"Bad Window", @"inTerminal": @"Tab"},
+        @"incomplete item": @{@"cmd": @"echo no-name"}
+    };
+    for (NSString *label in payloads) {
+        RegressionAppDelegate *delegate = MakeLaunchDelegate();
+        [delegate openHost:MenuItemWithPayload(payloads[label])];
+
+        EXPECT([delegate.warnings count] == 1, @"%@: expected one warning, got %@", label, delegate.warnings);
+        EXPECT(!delegate.reachedLaunch, @"%@: command was launched anyway", label);
+    }
+
+    RegressionAppDelegate *delegate = MakeLaunchDelegate();
+    [delegate openHost:MenuItemWithPayload(@{@"cmd": @"echo ok", @"name": @"Valid", @"inTerminal": @"tab"})];
+    EXPECT([delegate.warnings count] == 0 && delegate.reachedLaunch, @"valid item: warnings %@, launched %d",
+           delegate.warnings, delegate.reachedLaunch);
+}
+
 #pragma mark - Runner
 
 typedef struct {
@@ -423,6 +479,7 @@ static const RegressionCase cases[] = {
     {"ssh_config_host_patterns_are_not_shown", SSHConfigHostPatternsAreNotShown},
     {"build_menu_keeps_same_named_hosts_and_merges_groups", BuildMenuKeepsSameNamedHostsAndMergesGroups},
     {"alternate_config_groups_merge_with_main_config", AlternateConfigGroupsMergeWithMainConfig},
+    {"config_errors_warn_without_quitting", ConfigErrorsWarnWithoutQuitting},
 };
 
 static BOOL RunCase(RegressionCase regressionCase) {
