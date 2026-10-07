@@ -503,7 +503,8 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     }
 
     terminalPref = [self stringValueForKey:@"terminal" inDictionary:json defaultValue:@"terminal.app"];
-    editorPref = [self stringValueForKey:@"editor" inDictionary:json defaultValue:@"default"];
+    // Not lowercased like the other settings: the editor is a command, possibly with a path.
+    editorPref = [json[@"editor"] isKindOfClass:[NSString class]] ? json[@"editor"] : @"default";
     openInPref = [self stringValueForKey:@"open_in" inDictionary:json defaultValue:@"tab"];
     themePref = [json[@"default_theme"] isKindOfClass:[NSString class]] ? json[@"default_theme"] : nil;
     BOOL launchAtLogin = [self boolValueForKey:@"launch_at_login" inDictionary:json defaultValue:NO];
@@ -701,6 +702,7 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
         [menuItem setTitle:menuName];
         [menuItem setRepresentedObject:[self menuRepresentedObjectForConfig:cfg displayName:menuName]];
         [menuItem setAction:@selector(openHost:)];
+        [menuItem setTarget:self];
         [m insertItem:menuItem atIndex:pos++];
         if (addSeparator) {
             [m insertItem:[NSMenuItem separatorItem] atIndex:pos++];
@@ -1002,29 +1004,36 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     }
 }
 
+// The shell command that opens the config in the configured editor, or nil to use the default app.
+- (NSString *)editorCommandForEditor:(NSString *)editor configPath:(NSString *)configPath {
+    NSString *trimmedEditor = [editor stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if ([trimmedEditor length] == 0 || [trimmedEditor caseInsensitiveCompare:@"default"] == NSOrderedSame) {
+        return nil;
+    }
+
+    // Single-quote the path so spaces and other shell characters in it survive.
+    NSString *expandedPath = [configPath stringByExpandingTildeInPath];
+    NSString *quotedPath = [expandedPath stringByReplacingOccurrencesOfString:@"'" withString:@"'\\''"];
+    return [NSString stringWithFormat:@"%@ '%@'", editor, quotedPath];
+}
+
 - (IBAction)configure:(id)sender {
+    NSString *editorCommand = [self editorCommandForEditor:editorPref configPath:shuttleConfigFile];
 
-    //if the editor setting is omitted or contains 'default' open using the default editor.
-    if([editorPref rangeOfString:@"default"].location != NSNotFound) {
-
+    //if the editor setting is omitted or 'default' open using the default editor.
+    if (!editorCommand) {
         [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:shuttleConfigFile]];
+        return;
     }
-    else{
-        //build the editor command
-        NSString *editorCommand = [NSString stringWithFormat:@"%@ %@", editorPref, shuttleConfigFile];
 
-        //build the reprensented object. It's expecting menuCmd, termTheme, termTitle, termWindow, menuName
-        NSString *editorRepObj = [NSString stringWithFormat:@"%@¬_¬%@¬_¬%@¬_¬%@¬_¬%@", editorCommand, nil, @"Editing shuttle JSON", nil, nil];
+    //make a menu item for the command; openHost: runs it like any other host, in the default window mode.
+    NSString *title = NSLocalizedString(@"Editing shuttle JSON", nil);
+    NSMenuItem *editorMenu = [[NSMenuItem alloc] initWithTitle:title action:@selector(openHost:) keyEquivalent:@""];
+    [editorMenu setTarget:self];
+    [editorMenu setRepresentedObject:@{@"cmd": editorCommand, @"name": title, @"title": title}];
 
-        //make a menu item for the command selector(openHost:) runs in a new terminal window.
-        NSMenuItem *editorMenu = [[NSMenuItem alloc] initWithTitle:@"editJSONconfig" action:@selector(openHost:) keyEquivalent:(@"")];
-
-        //set the command for the menu item
-        [editorMenu setRepresentedObject:editorRepObj];
-
-        //open the JSON file in the terminal editor.
-        [self openHost:editorMenu];
-    }
+    //open the JSON file in the terminal editor.
+    [self openHost:editorMenu];
 }
 
 - (IBAction)showAbout:(id)sender {

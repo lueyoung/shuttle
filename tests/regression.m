@@ -22,6 +22,8 @@
 - (IBAction)showAbout:(id)sender;
 - (BOOL)exportConfigToURL:(NSURL *)destinationURL error:(NSError **)error;
 - (BOOL)importConfigFromURL:(NSURL *)sourceURL error:(NSError **)error;
+- (NSString *)editorCommandForEditor:(NSString *)editor configPath:(NSString *)configPath;
+- (IBAction)configure:(id)sender;
 @end
 
 // Reads ssh config from the files a case provides instead of the real ones on this machine,
@@ -30,6 +32,7 @@
 @property (nonatomic, copy) NSArray<NSString *> *sshConfigFiles;
 @property (nonatomic, readonly) NSMutableArray<NSString *> *warnings;
 @property (nonatomic) BOOL reachedLaunch;
+@property (nonatomic, readonly) NSMutableArray<NSMenuItem *> *openedItems;
 @end
 
 @implementation RegressionAppDelegate
@@ -37,6 +40,7 @@
     self = [super init];
     if (self) {
         _warnings = [NSMutableArray array];
+        _openedItems = [NSMutableArray array];
     }
     return self;
 }
@@ -47,6 +51,11 @@
 
 - (void)showWarning:(NSString *)message additionalInfo:(NSString *)info {
     [self.warnings addObject:message];
+}
+
+- (void)openHost:(NSMenuItem *)sender {
+    [self.openedItems addObject:sender];
+    [super openHost:sender];
 }
 
 // openHost: asks this right before handing the command to TerminalManager.
@@ -99,6 +108,20 @@ static NSString *WriteFile(NSString *directory, NSString *name, NSString *conten
 
 static NSString *ReadFile(NSString *path) {
     return [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:NULL];
+}
+
+static NSString *RunShell(NSString *command) {
+    NSTask *task = [[NSTask alloc] init];
+    NSPipe *output = [NSPipe pipe];
+    [task setExecutableURL:[NSURL fileURLWithPath:@"/bin/sh"]];
+    [task setArguments:@[@"-c", command]];
+    [task setStandardOutput:output];
+    if (![task launchAndReturnError:NULL]) {
+        return nil;
+    }
+    NSData *data = [[output fileHandleForReading] readDataToEndOfFile];
+    [task waitUntilExit];
+    return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
 }
 
 // Moves a file's modification date so a rewrite is always seen as newer.
@@ -549,6 +572,45 @@ static void ImportReplacesConfig(void) {
     }
 }
 
+static void EditorCommandKeepsEditorAndQuotesPath(void) {
+    AppDelegate *delegate = [[AppDelegate alloc] init];
+    for (NSString *editor in @[@"", @"default", @"Default", @" default "]) {
+        EXPECT([delegate editorCommandForEditor:editor configPath:@"/tmp/shuttle.json"] == nil,
+               @"editor '%@' should open the default app", editor);
+    }
+    EXPECT([delegate editorCommandForEditor:nil configPath:@"/tmp/shuttle.json"] == nil, @"a missing editor should open the default app");
+
+    NSString *command = [delegate editorCommandForEditor:@"/Users/Me/bin/MyEditor" configPath:@"/tmp/shuttle.json"];
+    EXPECT([command isEqualToString:@"/Users/Me/bin/MyEditor '/tmp/shuttle.json'"], @"unexpected editor command: %@", command);
+
+    for (NSString *configPath in @[@"/tmp/My Configs/shuttle.json", @"/tmp/it's here/shuttle $HOME `x`.json"]) {
+        NSString *echoed = RunShell([delegate editorCommandForEditor:@"printf %s" configPath:configPath]);
+        EXPECT([echoed isEqualToString:configPath], @"shell received %@ instead of %@", echoed, configPath);
+    }
+}
+
+static void ConfigureRunsEditorCommandThroughOpenHost(void) {
+    NSString *config = WriteFile(MakeTemporaryDirectory(), @"shuttle.json",
+                                 @"{\"editor\": \"/Users/Me/bin/MyEditor\", \"show_ssh_config_hosts\": false, "
+                                  "\"hosts\": [{\"name\": \"Alpha\", \"cmd\": \"echo alpha\"}]}");
+    NSMenu *menu = MakeStatusMenu();
+    RegressionAppDelegate *delegate = MakeDelegate(config, menu, [[FakeLaunchAtLoginController alloc] init]);
+    [delegate menuWillOpen:menu];
+
+    EXPECT([[menu itemWithTitle:@"Alpha"] target] == delegate, @"host menu item has no explicit target");
+
+    [delegate configure:nil];
+
+    NSMenuItem *editorItem = [delegate.openedItems lastObject];
+    NSDictionary *payload = [editorItem representedObject];
+    NSString *expectedCommand = [NSString stringWithFormat:@"/Users/Me/bin/MyEditor '%@'", config];
+    EXPECT([payload isKindOfClass:[NSDictionary class]] && [payload[@"cmd"] isEqualToString:expectedCommand],
+           @"unexpected editor payload: %@", payload);
+    EXPECT([editorItem target] == delegate, @"editor menu item has no explicit target");
+    EXPECT(delegate.reachedLaunch && [delegate.warnings count] == 0, @"editor command did not reach the launch (warnings: %@)",
+           delegate.warnings);
+}
+
 #pragma mark - Runner
 
 typedef struct {
@@ -576,6 +638,8 @@ static const RegressionCase cases[] = {
     {"export_replaces_existing_file", ExportReplacesExistingFile},
     {"import_rejects_invalid_config", ImportRejectsInvalidConfig},
     {"import_replaces_config", ImportReplacesConfig},
+    {"editor_command_keeps_editor_and_quotes_path", EditorCommandKeepsEditorAndQuotesPath},
+    {"configure_runs_editor_command_through_open_host", ConfigureRunsEditorCommandThroughOpenHost},
 };
 
 static BOOL RunCase(RegressionCase regressionCase) {
