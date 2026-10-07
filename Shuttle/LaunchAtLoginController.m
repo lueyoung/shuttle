@@ -133,8 +133,10 @@ void sharedFileListDidChange(LSSharedFileListRef inList, void *context)
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     LSSharedFileListItemRef appItem = [self findItemWithURL:itemURL inFileList:loginItems];
     if (enabled && !appItem) {
-        LSSharedFileListInsertItemURL(loginItems, kLSSharedFileListItemBeforeFirst,
-                                      NULL, NULL, (CFURLRef)itemURL, NULL, NULL);
+        LSSharedFileListItemRef insertedItem = LSSharedFileListInsertItemURL(loginItems, kLSSharedFileListItemBeforeFirst,
+                                                                             NULL, NULL, (CFURLRef)itemURL, NULL, NULL);
+        if (insertedItem)
+            CFRelease(insertedItem);
     } else if (!enabled && appItem)
         LSSharedFileListItemRemove(loginItems, appItem);
 #pragma clang diagnostic pop
