@@ -474,7 +474,10 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
             NSArray* hostAliases = [second componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
             hostAliases = [hostAliases filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"SELF != ''"]];
             key = [hostAliases firstObject];
-            servers[key] = [[NSMutableDictionary alloc] init];
+            // A Host line without an alias starts no section; later shuttle.* comments are ignored.
+            if (key) {
+                servers[key] = [[NSMutableDictionary alloc] init];
+            }
         }
     }
 
@@ -540,6 +543,10 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
 
             // Ignore entries that contain wildcard characters
             if ([name rangeOfString:@"*"].length != 0)
+                skipCurrent = YES;
+
+            // Ignore host patterns (wildcards or negations); ssh cannot connect to them
+            if ([key rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"*?!"]].location != NSNotFound)
                 skipCurrent = YES;
 
             // Ignore entries that start with `.`

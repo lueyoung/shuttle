@@ -312,6 +312,50 @@ static void BooleanSettingsTolerateWrongTypes(void) {
     }
 }
 
+static void SSHConfigHostWithoutAliasIsSkipped(void) {
+    NSString *sshConfig = WriteFile(MakeTemporaryDirectory(), @"ssh_config",
+                                    @"Host real-host\n"
+                                     "  # shuttle.name = Real Host\n"
+                                     "Host =\n"
+                                     "  # shuttle.name = Should Not Apply\n"
+                                     "Host=\n"
+                                     "Host other-host\n");
+    AppDelegate *delegate = [[AppDelegate alloc] init];
+    NSDictionary *servers = nil;
+
+    @try {
+        servers = [delegate parseSSHConfig:sshConfig];
+    } @catch (NSException *exception) {
+        EXPECT(NO, @"parsing raised %@", [exception reason]);
+        return;
+    }
+
+    NSArray *hosts = [[servers allKeys] sortedArrayUsingSelector:@selector(compare:)];
+    EXPECT([hosts isEqualToArray:(@[@"other-host", @"real-host"])], @"unexpected hosts: %@", hosts);
+    EXPECT([servers[@"real-host"][@"name"] isEqualToString:@"Real Host"],
+           @"shuttle.name after an empty Host leaked into the previous host: %@", servers[@"real-host"]);
+}
+
+static void SSHConfigHostPatternsAreNotShown(void) {
+    NSString *directory = MakeTemporaryDirectory();
+    NSString *sshConfig = WriteFile(directory, @"ssh_config",
+                                    @"Host web?\n"
+                                     "Host !bastion jump\n"
+                                     "Host *.example.com\n"
+                                     "Host *.corp\n"
+                                     "  # shuttle.name = Corp\n"
+                                     "Host real-host\n");
+    NSString *config = WriteFile(directory, @"shuttle.json", @"{\"show_ssh_config_hosts\": true, \"hosts\": []}");
+    NSMenu *menu = MakeStatusMenu();
+    RegressionAppDelegate *delegate = MakeDelegate(config, menu, [[FakeLaunchAtLoginController alloc] init]);
+    delegate.sshConfigFiles = @[sshConfig];
+
+    [delegate menuWillOpen:menu];
+
+    NSArray *titles = DynamicTitles(menu);
+    EXPECT([titles isEqualToArray:@[@"real-host"]], @"host patterns shown as hosts: %@", titles);
+}
+
 #pragma mark - Runner
 
 typedef struct {
@@ -330,6 +374,8 @@ static const RegressionCase cases[] = {
     {"launch_at_login_applied_only_when_changed", LaunchAtLoginAppliedOnlyWhenChanged},
     {"deleted_config_shows_error_item", DeletedConfigShowsErrorItem},
     {"boolean_settings_tolerate_wrong_types", BooleanSettingsTolerateWrongTypes},
+    {"ssh_config_host_without_alias_is_skipped", SSHConfigHostWithoutAliasIsSkipped},
+    {"ssh_config_host_patterns_are_not_shown", SSHConfigHostPatternsAreNotShown},
 };
 
 static BOOL RunCase(RegressionCase regressionCase) {
