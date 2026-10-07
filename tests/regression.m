@@ -10,6 +10,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import "AppDelegate.h"
+#import "AboutWindowController.h"
 
 @interface AppDelegate (RegressionTest)
 - (void)buildMenu:(NSArray *)data addToMenu:(NSMenu *)menu;
@@ -18,6 +19,7 @@
 - (void)openHost:(NSMenuItem *)sender;
 - (void)showWarning:(NSString *)message additionalInfo:(NSString *)info;
 - (BOOL)isOpenHostDryRunEnabled;
+- (IBAction)showAbout:(id)sender;
 @end
 
 // Reads ssh config from the files a case provides instead of the real ones on this machine,
@@ -457,6 +459,22 @@ static void ConfigErrorsWarnWithoutQuitting(void) {
            delegate.warnings, delegate.reachedLaunch);
 }
 
+static void AboutWindowControllerIsReleasedAndReused(void) {
+    __weak AboutWindowController *weakController = nil;
+    @autoreleasepool {
+        AboutWindowController *controller = [[AboutWindowController alloc] initWithWindowNibName:@"AboutWindowController"];
+        weakController = controller;
+    }
+    EXPECT(weakController == nil, @"AboutWindowController keeps itself alive after its last owner lets go");
+
+    AppDelegate *delegate = [[AppDelegate alloc] init];
+    [delegate showAbout:nil];
+    id firstController = [delegate valueForKey:@"aboutWindowController"];
+    [delegate showAbout:nil];
+    EXPECT(firstController != nil && [delegate valueForKey:@"aboutWindowController"] == firstController,
+           @"each About click creates a new window controller");
+}
+
 #pragma mark - Runner
 
 typedef struct {
@@ -480,6 +498,7 @@ static const RegressionCase cases[] = {
     {"build_menu_keeps_same_named_hosts_and_merges_groups", BuildMenuKeepsSameNamedHostsAndMergesGroups},
     {"alternate_config_groups_merge_with_main_config", AlternateConfigGroupsMergeWithMainConfig},
     {"config_errors_warn_without_quitting", ConfigErrorsWarnWithoutQuitting},
+    {"about_window_controller_is_released_and_reused", AboutWindowControllerIsReleasedAndReused},
 };
 
 static BOOL RunCase(RegressionCase regressionCase) {

@@ -1012,15 +1012,17 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
 
 - (IBAction)showAbout:(id)sender {
 
-    //Call the windows controller
-    AboutWindowController *aboutWindow = [[AboutWindowController alloc] initWithWindowNibName:@"AboutWindowController"];
+    //Call the windows controller; one about window is reused instead of opening another on every click.
+    if (!aboutWindowController) {
+        aboutWindowController = [[AboutWindowController alloc] initWithWindowNibName:@"AboutWindowController"];
+    }
 
     //Set the window to stay on top
-    [aboutWindow.window makeKeyAndOrderFront:nil];
-    [aboutWindow.window setLevel:NSFloatingWindowLevel];
+    [aboutWindowController.window makeKeyAndOrderFront:nil];
+    [aboutWindowController.window setLevel:NSFloatingWindowLevel];
 
     //Show the window
-    [aboutWindow showWindow:self];
+    [aboutWindowController showWindow:self];
 }
 
 - (IBAction)quit:(id)sender {

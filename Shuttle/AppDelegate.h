@@ -7,6 +7,8 @@
 #import "LaunchAtLoginController.h"
 #import "TerminalManager.h"
 
+@class AboutWindowController;
+
 @interface AppDelegate : NSObject <NSApplicationDelegate, NSMenuDelegate>{
     IBOutlet NSMenu *menu;
     IBOutlet NSArrayController *arrayController;
@@ -46,6 +48,7 @@
     NSMutableArray* ignoreKeywords;
     
     LaunchAtLoginController *launchAtLoginController;
+    AboutWindowController *aboutWindowController; //Reused for every About click
     
 }
 
