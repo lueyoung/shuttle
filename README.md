@@ -48,20 +48,20 @@ Recent work in this fork includes:
 2. Run:
 
 ```bash
-./scripts/build-debug.sh
+./scripts/build-release.sh
 ```
 
 3. The app will be generated at:
 
 ```bash
-products/Debug/Shuttle.app
+products/Release/Shuttle.app
 ```
 
-4. Move `products/Debug/Shuttle.app` to `/Applications`, or run it directly.
+4. Quit the running Shuttle, then move `products/Release/Shuttle.app` to `/Applications`.
 
 ## Build
 
-Build locally with:
+For development, build the Debug configuration with:
 
 ```bash
 ./scripts/build-debug.sh
@@ -92,6 +92,8 @@ SHUTTLE_PRODUCTS_DIR=/tmp/shuttle-products \
 SHUTTLE_DERIVED_DATA_PATH=/tmp/shuttle-deriveddata \
 ./scripts/build-debug.sh
 ```
+
+`./scripts/build-release.sh` builds the Release configuration into `products/Release/` and accepts the same overrides.
 
 ## Test
 
