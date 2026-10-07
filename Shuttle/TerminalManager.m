@@ -7,7 +7,9 @@
 #import <Cocoa/Cocoa.h>
 #import "TerminalManager.h"
 
-@implementation TerminalManager
+@implementation TerminalManager {
+    dispatch_queue_t launchQueue;
+}
 
 + (instancetype)sharedManager {
     static TerminalManager *sharedManager = nil;
@@ -16,6 +18,16 @@
         sharedManager = [[self alloc] init];
     });
     return sharedManager;
+}
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        // 启动命令要等 osascript（iTerm 冷启动时要等好几秒），放到后台执行以免卡住菜单栏；
+        // 串行队列保证连续点击按顺序执行
+        launchQueue = dispatch_queue_create("shuttle.terminal-launch", DISPATCH_QUEUE_SERIAL);
+    }
+    return self;
 }
 
 - (void)executeCommandInBackground:(NSString *)command title:(NSString *)title {
@@ -55,18 +67,20 @@
                          theme:(NSString *)theme
                          title:(NSString *)title {
 
-    if (windowMode == WindowModeVirtual) {
-        [self executeCommandInBackground:command title:(title ?: @"Shuttle")];
-        return;
-    }
+    dispatch_async(launchQueue, ^{
+        if (windowMode == WindowModeVirtual) {
+            [self executeCommandInBackground:command title:(title ?: @"Shuttle")];
+            return;
+        }
 
-    if (terminalType == TerminalTypeDefault) {
-        // 执行 Terminal.app 命令
-        [self executeInTerminalDirectly:command windowMode:windowMode theme:theme title:title];
-    } else {
-        // 执行 iTerm 命令
-        [self executeInITermDirectly:command windowMode:windowMode theme:theme title:title];
-    }
+        if (terminalType == TerminalTypeDefault) {
+            // 执行 Terminal.app 命令
+            [self executeInTerminalDirectly:command windowMode:windowMode theme:theme title:title];
+        } else {
+            // 执行 iTerm 命令
+            [self executeInITermDirectly:command windowMode:windowMode theme:theme title:title];
+        }
+    });
 }
 
 - (BOOL)runOSAScript:(NSString *)script context:(NSString *)context {

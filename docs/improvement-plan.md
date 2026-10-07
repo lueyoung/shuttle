@@ -16,7 +16,7 @@
 - [x] 2.2 About 窗口泄漏
 - [x] 2.3 导入/导出
 - [x] 2.4 编辑器命令 + 菜单项 target
-- [ ] 2.5 终端启动移出主线程
+- [x] 2.5 终端启动移出主线程
 - [x] 2.6 LaunchAtLoginController 泄漏（仅 D1 选 12.0 时）
 - [x] 3.1 清理 TerminalManager 死代码
 - [x] 3.2 清理 AppDelegate 死代码与旧系统分支

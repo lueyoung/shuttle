@@ -78,6 +78,47 @@
 }
 @end
 
+// Records launches instead of running osascript, screen or a terminal.
+@interface RecordingTerminalManager : TerminalManager
+@property (nonatomic, readonly) NSMutableArray<NSString *> *calls;
+@property (nonatomic, readonly) dispatch_semaphore_t finished;
+@property (atomic) BOOL ranOnMainThread;
+@end
+
+@implementation RecordingTerminalManager
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _calls = [NSMutableArray array];
+        _finished = dispatch_semaphore_create(0);
+    }
+    return self;
+}
+
+- (void)record:(NSString *)call {
+    if ([NSThread isMainThread]) {
+        self.ranOnMainThread = YES;
+    }
+    usleep(200000); // as slow as a short osascript run
+    @synchronized (self) {
+        [self.calls addObject:call];
+    }
+    dispatch_semaphore_signal(self.finished);
+}
+
+- (void)executeInITermDirectly:(NSString *)command windowMode:(WindowMode)windowMode theme:(NSString *)theme title:(NSString *)title {
+    [self record:[@"iTerm:" stringByAppendingString:command]];
+}
+
+- (void)executeInTerminalDirectly:(NSString *)command windowMode:(WindowMode)windowMode theme:(NSString *)theme title:(NSString *)title {
+    [self record:[@"Terminal:" stringByAppendingString:command]];
+}
+
+- (void)executeCommandInBackground:(NSString *)command title:(NSString *)title {
+    [self record:[@"screen:" stringByAppendingString:command]];
+}
+@end
+
 static const NSUInteger StaticMenuItemCount = 4;
 static NSMutableArray<NSString *> *failures;
 static NSMutableArray<NSString *> *temporaryDirectories;
@@ -611,6 +652,27 @@ static void ConfigureRunsEditorCommandThroughOpenHost(void) {
            delegate.warnings);
 }
 
+static void TerminalLaunchRunsOffMainThreadInOrder(void) {
+    RecordingTerminalManager *manager = [[RecordingTerminalManager alloc] init];
+
+    NSDate *start = [NSDate date];
+    [manager executeCommandDirectly:@"first" terminalType:TerminalTypeITerm windowMode:WindowModeTab theme:@"Default" title:@"One"];
+    [manager executeCommandDirectly:@"second" terminalType:TerminalTypeDefault windowMode:WindowModeNew theme:@"Basic" title:@"Two"];
+    [manager executeCommandDirectly:@"third" terminalType:TerminalTypeITerm windowMode:WindowModeVirtual theme:nil title:nil];
+    NSTimeInterval elapsed = -[start timeIntervalSinceNow];
+    EXPECT(elapsed < 0.1, @"launching blocked the caller for %.2fs", elapsed);
+
+    for (int launch = 1; launch <= 3; launch++) {
+        long timedOut = dispatch_semaphore_wait(manager.finished, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
+        EXPECT(timedOut == 0, @"launch %d never ran", launch);
+    }
+    EXPECT(!manager.ranOnMainThread, @"launch ran on the main thread");
+    @synchronized (manager) {
+        EXPECT([manager.calls isEqualToArray:(@[@"iTerm:first", @"Terminal:second", @"screen:third"])],
+               @"launches ran out of order: %@", manager.calls);
+    }
+}
+
 #pragma mark - Runner
 
 typedef struct {
@@ -640,6 +702,7 @@ static const RegressionCase cases[] = {
     {"import_replaces_config", ImportReplacesConfig},
     {"editor_command_keeps_editor_and_quotes_path", EditorCommandKeepsEditorAndQuotesPath},
     {"configure_runs_editor_command_through_open_host", ConfigureRunsEditorCommandThroughOpenHost},
+    {"terminal_launch_runs_off_main_thread_in_order", TerminalLaunchRunsOffMainThreadInOrder},
 };
 
 static BOOL RunCase(RegressionCase regressionCase) {
