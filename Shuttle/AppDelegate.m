@@ -102,15 +102,13 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     [menu setDelegate:self];
 }
 
+// YES when the file appeared, disappeared or was modified since `old` (nil if it did not exist then).
 - (BOOL) needUpdateFor: (NSString*) file with: (NSDate*) old {
-
-    if (![[NSFileManager defaultManager] fileExistsAtPath:[file stringByExpandingTildeInPath]])
-        return false;
-
-    if (old == NULL)
-        return true;
-
     NSDate *date = [self getMTimeFor:file];
+
+    if (date == nil || old == nil)
+        return (date == nil) != (old == nil);
+
     return [date compare: old] == NSOrderedDescending;
 }
 
@@ -263,35 +261,21 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     [menuItem setEnabled:NO];
 }
 
-- (BOOL)sshConfigFilesNeedUpdate {
-    NSArray *defaultConfigFiles = @[
+- (NSArray<NSString *> *)defaultSSHConfigFiles {
+    return @[
         @"/etc/ssh_config",
         @"/etc/ssh/ssh_config",
         [@"~/.ssh/config" stringByExpandingTildeInPath]
     ];
+}
 
-    if (!sshConfigModifiedTimes) {
-        for (NSString *file in defaultConfigFiles) {
-            if ([[NSFileManager defaultManager] fileExistsAtPath:file]) {
-                return YES;
-            }
-        }
-        return NO;
-    }
-
-    NSMutableSet *filesToCheck = [NSMutableSet setWithArray:defaultConfigFiles];
+- (BOOL)sshConfigFilesNeedUpdate {
+    // sshConfigModifiedTimes also holds the files pulled in through Include.
+    NSMutableSet *filesToCheck = [NSMutableSet setWithArray:[self defaultSSHConfigFiles]];
     [filesToCheck addObjectsFromArray:[sshConfigModifiedTimes allKeys]];
 
     for (NSString *file in filesToCheck) {
-        NSDate *oldDate = sshConfigModifiedTimes[file];
-        BOOL existedBefore = (oldDate != nil);
-        BOOL existsNow = [[NSFileManager defaultManager] fileExistsAtPath:file];
-
-        if (existedBefore && !existsNow) {
-            return YES;
-        }
-
-        if (existsNow && [self needUpdateFor:file with:oldDate]) {
+        if ([self needUpdateFor:file with:sshConfigModifiedTimes[file]]) {
             return YES;
         }
     }
@@ -300,11 +284,14 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
 }
 
 - (void)menuWillOpen:(NSMenu *)menu {
-    // Check when the config was last modified
-    if ( [self needUpdateFor:shuttleConfigFile with:configModified] ||
+    // Load on the first open, then only when a config file appeared, disappeared or changed.
+    // The ssh config files only matter while their hosts are shown.
+    if ( !menuLoaded ||
+        [self needUpdateFor:shuttleConfigFile with:configModified] ||
         [self needUpdateFor:shuttleAltConfigFile with:configModified2] ||
-        [self sshConfigFilesNeedUpdate]) {
+        (showSshConfigHosts && [self sshConfigFilesNeedUpdate])) {
 
+        menuLoaded = YES;
         configModified = [self getMTimeFor:shuttleConfigFile];
         configModified2 = [self getMTimeFor:shuttleAltConfigFile];
 
@@ -319,13 +306,8 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     NSFileManager *fileMgr = [[NSFileManager alloc] init];
     NSMutableDictionary<NSString *, NSDictionary *> *servers = [[NSMutableDictionary alloc] init];
     sshConfigModifiedTimes = [NSMutableDictionary dictionary];
-    NSArray<NSString *> *configFiles = @[
-        @"/etc/ssh_config",
-        @"/etc/ssh/ssh_config",
-        [@"~/.ssh/config" stringByExpandingTildeInPath]
-    ];
 
-    for (NSString *configFile in configFiles) {
+    for (NSString *configFile in [self defaultSSHConfigFiles]) {
         if (![fileMgr fileExistsAtPath:configFile]) {
             continue;
         }
@@ -494,6 +476,7 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     while ([[menu itemArray] count] > staticMenuItems) {
         [menu removeItemAtIndex:0];
     }
+    showSshConfigHosts = NO;
 
     // Parse the config file
     NSError *jsonError = nil;
@@ -508,7 +491,11 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     editorPref = [self stringValueForKey:@"editor" inDictionary:json defaultValue:@"default"];
     openInPref = [self stringValueForKey:@"open_in" inDictionary:json defaultValue:@"tab"];
     themePref = [json[@"default_theme"] isKindOfClass:[NSString class]] ? json[@"default_theme"] : nil;
-    launchAtLoginController.launchAtLogin = [json[@"launch_at_login"] boolValue];
+    BOOL launchAtLogin = [json[@"launch_at_login"] boolValue];
+    // Only touch the login item when the setting differs from its current state.
+    if (launchAtLoginController.launchAtLogin != launchAtLogin) {
+        launchAtLoginController.launchAtLogin = launchAtLogin;
+    }
     shuttleHosts = [self validatedHostsFromJSON:json sourceName:@"primary config"];
     ignoreHosts = [self mutableStringArrayFromValue:json[@"ssh_config_ignore_hosts"]];
     ignoreKeywords = [self mutableStringArrayFromValue:json[@"ssh_config_ignore_keywords"]];
@@ -527,7 +514,7 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     }
 
     // Should we merge ssh config hosts?
-    BOOL showSshConfigHosts = YES;
+    showSshConfigHosts = YES;
     if ([[json allKeys] containsObject:(@"show_ssh_config_hosts")] && [json[@"show_ssh_config_hosts"] boolValue] == NO) {
         showSshConfigHosts = NO;
     }

@@ -14,6 +14,18 @@
 @interface AppDelegate (RegressionTest)
 - (void)buildMenu:(NSArray *)data addToMenu:(NSMenu *)menu;
 - (NSDictionary *)parseSSHConfig:(NSString *)filepath;
+- (NSArray<NSString *> *)defaultSSHConfigFiles;
+@end
+
+// Reads ssh config from the files a case provides instead of the real ones on this machine.
+@interface RegressionAppDelegate : AppDelegate
+@property (nonatomic, copy) NSArray<NSString *> *sshConfigFiles;
+@end
+
+@implementation RegressionAppDelegate
+- (NSArray<NSString *> *)defaultSSHConfigFiles {
+    return self.sshConfigFiles ?: @[];
+}
 @end
 
 // Stands in for LaunchAtLoginController so the cases never touch SMAppService.
@@ -57,6 +69,12 @@ static NSString *WriteFile(NSString *directory, NSString *name, NSString *conten
     return path;
 }
 
+// Moves a file's modification date so a rewrite is always seen as newer.
+static void SetModificationDate(NSString *path, NSTimeInterval secondsFromNow) {
+    NSDictionary *attributes = @{NSFileModificationDate: [NSDate dateWithTimeIntervalSinceNow:secondsFromNow]};
+    [[NSFileManager defaultManager] setAttributes:attributes ofItemAtPath:path error:NULL];
+}
+
 // Mirrors the status menu in MainMenu.xib: separator, Settings, About, Quit.
 static NSMenu *MakeStatusMenu(void) {
     NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
@@ -67,8 +85,8 @@ static NSMenu *MakeStatusMenu(void) {
     return menu;
 }
 
-static AppDelegate *MakeDelegate(NSString *configPath, NSMenu *menu, FakeLaunchAtLoginController *launchAtLogin) {
-    AppDelegate *delegate = [[AppDelegate alloc] init];
+static RegressionAppDelegate *MakeDelegate(NSString *configPath, NSMenu *menu, FakeLaunchAtLoginController *launchAtLogin) {
+    RegressionAppDelegate *delegate = [[RegressionAppDelegate alloc] init];
     [delegate setValue:menu forKey:@"menu"];
     [delegate setValue:configPath forKey:@"shuttleConfigFile"];
     [delegate setValue:[configPath stringByAppendingString:@".missing-alt"] forKey:@"shuttleAltConfigFile"];
@@ -171,6 +189,85 @@ static void InvalidConfigShowsErrorItem(void) {
     }
 }
 
+static void MenuIsNotRebuiltWhenNothingChanged(void) {
+    NSString *directory = MakeTemporaryDirectory();
+    NSString *sshConfig = WriteFile(directory, @"ssh_config", @"Host fixture-host\n  HostName example.com\n");
+
+    for (NSString *showSSHHosts in @[@"false", @"true"]) {
+        NSString *json = [NSString stringWithFormat:@"{\"show_ssh_config_hosts\": %@, \"hosts\": "
+                          "[{\"name\": \"Alpha\", \"cmd\": \"echo alpha\"}]}", showSSHHosts];
+        NSString *config = WriteFile(directory, @"shuttle.json", json);
+        NSMenu *menu = MakeStatusMenu();
+        FakeLaunchAtLoginController *launchAtLogin = [[FakeLaunchAtLoginController alloc] init];
+        RegressionAppDelegate *delegate = MakeDelegate(config, menu, launchAtLogin);
+        delegate.sshConfigFiles = @[sshConfig];
+
+        [delegate menuWillOpen:menu];
+        NSMenuItem *firstItem = [menu itemAtIndex:0];
+        [delegate menuWillOpen:menu];
+        [delegate menuWillOpen:menu];
+
+        EXPECT([menu itemAtIndex:0] == firstItem, @"menu rebuilt on every open (show_ssh_config_hosts=%@)", showSSHHosts);
+        EXPECT(launchAtLogin.setCount == 0, @"launch at login set %ld times although it never changed (show_ssh_config_hosts=%@)",
+               (long)launchAtLogin.setCount, showSSHHosts);
+    }
+}
+
+static void SSHConfigChangeRebuildsMenu(void) {
+    NSString *directory = MakeTemporaryDirectory();
+    NSString *sshConfig = WriteFile(directory, @"ssh_config", @"Host first-host\n");
+    NSString *config = WriteFile(directory, @"shuttle.json", @"{\"show_ssh_config_hosts\": true, \"hosts\": []}");
+    NSMenu *menu = MakeStatusMenu();
+    RegressionAppDelegate *delegate = MakeDelegate(config, menu, [[FakeLaunchAtLoginController alloc] init]);
+    delegate.sshConfigFiles = @[sshConfig];
+
+    [delegate menuWillOpen:menu];
+    EXPECT([DynamicTitles(menu) isEqualToArray:@[@"first-host"]], @"unexpected ssh hosts: %@", DynamicTitles(menu));
+
+    WriteFile(directory, @"ssh_config", @"Host second-host\n");
+    SetModificationDate(sshConfig, 10);
+    [delegate menuWillOpen:menu];
+    EXPECT([DynamicTitles(menu) isEqualToArray:@[@"second-host"]], @"ssh config change not picked up: %@", DynamicTitles(menu));
+}
+
+static void LaunchAtLoginAppliedOnlyWhenChanged(void) {
+    NSString *directory = MakeTemporaryDirectory();
+    NSString *enabled = @"{\"launch_at_login\": true, \"show_ssh_config_hosts\": false, \"hosts\": []}";
+    NSString *config = WriteFile(directory, @"shuttle.json", enabled);
+    NSMenu *menu = MakeStatusMenu();
+    FakeLaunchAtLoginController *launchAtLogin = [[FakeLaunchAtLoginController alloc] init];
+    RegressionAppDelegate *delegate = MakeDelegate(config, menu, launchAtLogin);
+
+    [delegate menuWillOpen:menu];
+    EXPECT(launchAtLogin.launchAtLogin && launchAtLogin.setCount == 1, @"launch at login not enabled once (set %ld times)",
+           (long)launchAtLogin.setCount);
+
+    WriteFile(directory, @"shuttle.json", enabled);
+    SetModificationDate(config, 10);
+    [delegate menuWillOpen:menu];
+    EXPECT(launchAtLogin.setCount == 1, @"unchanged launch_at_login applied again (set %ld times)", (long)launchAtLogin.setCount);
+
+    WriteFile(directory, @"shuttle.json", @"{\"launch_at_login\": false, \"show_ssh_config_hosts\": false, \"hosts\": []}");
+    SetModificationDate(config, 20);
+    [delegate menuWillOpen:menu];
+    EXPECT(!launchAtLogin.launchAtLogin && launchAtLogin.setCount == 2, @"launch at login not disabled (set %ld times)",
+           (long)launchAtLogin.setCount);
+}
+
+static void DeletedConfigShowsErrorItem(void) {
+    NSString *config = WriteFile(MakeTemporaryDirectory(), @"shuttle.json",
+                                 @"{\"show_ssh_config_hosts\": false, \"hosts\": [{\"name\": \"Alpha\", \"cmd\": \"echo alpha\"}]}");
+    NSMenu *menu = MakeStatusMenu();
+    RegressionAppDelegate *delegate = MakeDelegate(config, menu, [[FakeLaunchAtLoginController alloc] init]);
+
+    [delegate menuWillOpen:menu];
+    EXPECT([DynamicTitles(menu) isEqualToArray:@[@"Alpha"]], @"unexpected hosts: %@", DynamicTitles(menu));
+
+    [[NSFileManager defaultManager] removeItemAtPath:config error:NULL];
+    [delegate menuWillOpen:menu];
+    EXPECT([DynamicTitles(menu) isEqualToArray:@[@"Error parsing config"]], @"deleted config shows %@", DynamicTitles(menu));
+}
+
 #pragma mark - Runner
 
 typedef struct {
@@ -184,6 +281,10 @@ static const RegressionCase cases[] = {
     {"menu_loads_hosts_from_config", MenuLoadsHostsFromConfig},
     {"missing_config_shows_error_item", MissingConfigShowsErrorItem},
     {"invalid_config_shows_error_item", InvalidConfigShowsErrorItem},
+    {"menu_is_not_rebuilt_when_nothing_changed", MenuIsNotRebuiltWhenNothingChanged},
+    {"ssh_config_change_rebuilds_menu", SSHConfigChangeRebuildsMenu},
+    {"launch_at_login_applied_only_when_changed", LaunchAtLoginAppliedOnlyWhenChanged},
+    {"deleted_config_shows_error_item", DeletedConfigShowsErrorItem},
 };
 
 static BOOL RunCase(RegressionCase regressionCase) {

@@ -21,6 +21,8 @@
     NSDate *configModified;
     NSDate *configModified2;
     NSMutableDictionary *sshConfigModifiedTimes;
+    BOOL menuLoaded; //Has the menu been loaded at least once
+    BOOL showSshConfigHosts; //Did the last load merge the ssh config hosts
     
     //Global settings Pref in the JSON file.
     NSString *shuttleJSONPathPref; //Alternate path the JSON file
