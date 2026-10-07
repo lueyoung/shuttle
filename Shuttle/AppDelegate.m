@@ -123,6 +123,18 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     return [value isKindOfClass:[NSString class]] ? [value lowercaseString] : defaultValue;
 }
 
+- (BOOL)boolValueForKey:(NSString *)key inDictionary:(NSDictionary *)dictionary defaultValue:(BOOL)defaultValue {
+    id value = dictionary[key];
+    if ([value isKindOfClass:[NSNumber class]] || [value isKindOfClass:[NSString class]]) {
+        return [value boolValue];
+    }
+
+    if (value) {
+        NSLog(@"Ignoring %@ because it is not a boolean", key);
+    }
+    return defaultValue;
+}
+
 - (NSString *)legacyMenuRepresentedObjectWithCommand:(NSString *)command
                                                theme:(NSString *)theme
                                                title:(NSString *)title
@@ -491,7 +503,7 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     editorPref = [self stringValueForKey:@"editor" inDictionary:json defaultValue:@"default"];
     openInPref = [self stringValueForKey:@"open_in" inDictionary:json defaultValue:@"tab"];
     themePref = [json[@"default_theme"] isKindOfClass:[NSString class]] ? json[@"default_theme"] : nil;
-    BOOL launchAtLogin = [json[@"launch_at_login"] boolValue];
+    BOOL launchAtLogin = [self boolValueForKey:@"launch_at_login" inDictionary:json defaultValue:NO];
     // Only touch the login item when the setting differs from its current state.
     if (launchAtLoginController.launchAtLogin != launchAtLogin) {
         launchAtLoginController.launchAtLogin = launchAtLogin;
@@ -514,10 +526,7 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     }
 
     // Should we merge ssh config hosts?
-    showSshConfigHosts = YES;
-    if ([[json allKeys] containsObject:(@"show_ssh_config_hosts")] && [json[@"show_ssh_config_hosts"] boolValue] == NO) {
-        showSshConfigHosts = NO;
-    }
+    showSshConfigHosts = [self boolValueForKey:@"show_ssh_config_hosts" inDictionary:json defaultValue:YES];
 
     if (showSshConfigHosts) {
         // Read configuration from ssh config

@@ -268,6 +268,50 @@ static void DeletedConfigShowsErrorItem(void) {
     EXPECT([DynamicTitles(menu) isEqualToArray:@[@"Error parsing config"]], @"deleted config shows %@", DynamicTitles(menu));
 }
 
+static void BooleanSettingsTolerateWrongTypes(void) {
+    NSString *directory = MakeTemporaryDirectory();
+    NSString *sshConfig = WriteFile(directory, @"ssh_config", @"Host ssh-host\n");
+    // JSON value used for both launch_at_login and show_ssh_config_hosts, then the expected
+    // launch_at_login and show_ssh_config_hosts. An empty value leaves both keys out.
+    NSArray *rows = @[
+        @[@"", @NO, @YES],
+        @[@"null", @NO, @YES],
+        @[@"[]", @NO, @YES],
+        @[@"{}", @NO, @YES],
+        @[@"true", @YES, @YES],
+        @[@"false", @NO, @NO],
+        @[@"\"true\"", @YES, @YES],
+        @[@"\"false\"", @NO, @NO]
+    ];
+
+    for (NSArray *row in rows) {
+        NSString *value = row[0];
+        NSString *label = [value length] > 0 ? value : @"(missing)";
+        NSString *settings = [value length] > 0
+            ? [NSString stringWithFormat:@"\"launch_at_login\": %@, \"show_ssh_config_hosts\": %@, ", value, value]
+            : @"";
+        NSString *json = [NSString stringWithFormat:@"{%@\"hosts\": [{\"name\": \"Alpha\", \"cmd\": \"echo alpha\"}]}", settings];
+        NSString *config = WriteFile(directory, @"shuttle.json", json);
+        NSMenu *menu = MakeStatusMenu();
+        FakeLaunchAtLoginController *launchAtLogin = [[FakeLaunchAtLoginController alloc] init];
+        RegressionAppDelegate *delegate = MakeDelegate(config, menu, launchAtLogin);
+        delegate.sshConfigFiles = @[sshConfig];
+
+        @try {
+            [delegate menuWillOpen:menu];
+        } @catch (NSException *exception) {
+            EXPECT(NO, @"%@ raised %@", label, [exception reason]);
+            continue;
+        }
+
+        NSArray *titles = DynamicTitles(menu);
+        EXPECT([titles containsObject:@"Alpha"], @"%@: hosts missing: %@", label, titles);
+        EXPECT(launchAtLogin.launchAtLogin == [row[1] boolValue], @"%@: launch_at_login became %d", label, launchAtLogin.launchAtLogin);
+        EXPECT([titles containsObject:@"ssh-host"] == [row[2] boolValue], @"%@: ssh hosts shown = %d", label,
+               [titles containsObject:@"ssh-host"]);
+    }
+}
+
 #pragma mark - Runner
 
 typedef struct {
@@ -285,6 +329,7 @@ static const RegressionCase cases[] = {
     {"ssh_config_change_rebuilds_menu", SSHConfigChangeRebuildsMenu},
     {"launch_at_login_applied_only_when_changed", LaunchAtLoginAppliedOnlyWhenChanged},
     {"deleted_config_shows_error_item", DeletedConfigShowsErrorItem},
+    {"boolean_settings_tolerate_wrong_types", BooleanSettingsTolerateWrongTypes},
 };
 
 static BOOL RunCase(RegressionCase regressionCase) {
