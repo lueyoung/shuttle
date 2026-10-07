@@ -95,13 +95,17 @@ SHUTTLE_DERIVED_DATA_PATH=/tmp/shuttle-deriveddata \
 
 ## Test
 
-Validate config fixtures with:
+Run the test suites with:
 
 ```bash
 python3 tests/test_config_fixtures.py
+python3 tests/test_openhost_smoke.py
+python3 tests/test_regression.py
 ```
 
-The GitHub Actions workflow runs the fixture validation and a macOS build.
+The smoke and regression tests compile small Objective-C harnesses against the app sources with `xcrun clang`, so they need the Xcode command line tools. They never launch a terminal.
+
+The GitHub Actions workflow runs all three suites and a macOS build.
 
 ## Configuration
 

@@ -20,3 +20,6 @@ products/
 xcuserdata
 profile
 *.moved-aside
+
+# Python
+__pycache__/
