@@ -10,19 +10,9 @@
 		0ADB3B0D178EF8DB004E9BB9 /* StatusIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = 0ADB3B09178EF8DB004E9BB9 /* StatusIcon.png */; };
 		0ADB3B0E178EF8DB004E9BB9 /* StatusIcon@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 0ADB3B0A178EF8DB004E9BB9 /* StatusIcon@2x.png */; };
 		0ADB3B13178F3DE4004E9BB9 /* LaunchAtLoginController.m in Sources */ = {isa = PBXBuildFile; fileRef = 0ADB3B12178F3DE4004E9BB9 /* LaunchAtLoginController.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
-		24399FE6219CD0F700C8658F /* virtual-with-screen.scpt in Resources */ = {isa = PBXBuildFile; fileRef = 24399FE5219CD0F700C8658F /* virtual-with-screen.scpt */; };
 		5C17BDD22D8524F800535AF8 /* TerminalManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 5C17BDD12D8524F800535AF8 /* TerminalManager.m */; };
 		6FC541A31D45CF7F00A896E3 /* AboutWindowController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 6FC541A51D45CF7F00A896E3 /* AboutWindowController.xib */; };
 		7E74A7C61789CE2F0079E0D2 /* shuttle.default.json in Resources */ = {isa = PBXBuildFile; fileRef = 7E74A7C51789CE2F0079E0D2 /* shuttle.default.json */; };
-		A124BA191D45572B00218F2F /* iTerm2-stable-current-window.scpt in Resources */ = {isa = PBXBuildFile; fileRef = A124BA161D45572B00218F2F /* iTerm2-stable-current-window.scpt */; };
-		A124BA1A1D45572B00218F2F /* iTerm2-stable-new-tab-default.scpt in Resources */ = {isa = PBXBuildFile; fileRef = A124BA171D45572B00218F2F /* iTerm2-stable-new-tab-default.scpt */; };
-		A124BA1B1D45572B00218F2F /* iTerm2-stable-new-window.scpt in Resources */ = {isa = PBXBuildFile; fileRef = A124BA181D45572B00218F2F /* iTerm2-stable-new-window.scpt */; };
-		A12D9BF31BCF2C73004F52A6 /* iTerm2-nightly-current-window.scpt in Resources */ = {isa = PBXBuildFile; fileRef = A12D9BEA1BCF2C73004F52A6 /* iTerm2-nightly-current-window.scpt */; };
-		A12D9BF41BCF2C73004F52A6 /* iTerm2-nightly-new-tab-default.scpt in Resources */ = {isa = PBXBuildFile; fileRef = A12D9BEB1BCF2C73004F52A6 /* iTerm2-nightly-new-tab-default.scpt */; };
-		A12D9BF51BCF2C73004F52A6 /* iTerm2-nightly-new-window.scpt in Resources */ = {isa = PBXBuildFile; fileRef = A12D9BEC1BCF2C73004F52A6 /* iTerm2-nightly-new-window.scpt */; };
-		A12D9BF61BCF2C73004F52A6 /* terminal-current-window.scpt in Resources */ = {isa = PBXBuildFile; fileRef = A12D9BED1BCF2C73004F52A6 /* terminal-current-window.scpt */; };
-		A12D9BF71BCF2C73004F52A6 /* terminal-new-tab-default.scpt in Resources */ = {isa = PBXBuildFile; fileRef = A12D9BEE1BCF2C73004F52A6 /* terminal-new-tab-default.scpt */; };
-		A12D9BF81BCF2C73004F52A6 /* terminal-new-window.scpt in Resources */ = {isa = PBXBuildFile; fileRef = A12D9BEF1BCF2C73004F52A6 /* terminal-new-window.scpt */; };
 		A1B7B9DD1DB53ED200809327 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A1B7B9DF1DB53ED200809327 /* Localizable.strings */; };
 		A1D700071A5DCE8D003563E4 /* AboutWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1D700061A5DCE8D003563E4 /* AboutWindowController.m */; };
 		C149EBFE15D5214600B1F558 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C149EBFD15D5214600B1F558 /* Cocoa.framework */; };
@@ -40,20 +30,10 @@
 		0ADB3B0A178EF8DB004E9BB9 /* StatusIcon@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "StatusIcon@2x.png"; sourceTree = "<group>"; };
 		0ADB3B11178F3DE4004E9BB9 /* LaunchAtLoginController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LaunchAtLoginController.h; sourceTree = "<group>"; };
 		0ADB3B12178F3DE4004E9BB9 /* LaunchAtLoginController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = LaunchAtLoginController.m; sourceTree = "<group>"; };
-		24399FE5219CD0F700C8658F /* virtual-with-screen.scpt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "virtual-with-screen.scpt"; sourceTree = "<group>"; };
 		5C17BDD02D8524F800535AF8 /* TerminalManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TerminalManager.h; sourceTree = "<group>"; };
 		5C17BDD12D8524F800535AF8 /* TerminalManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TerminalManager.m; sourceTree = "<group>"; };
 		7E72D21E178003ED00A6389C /* Shuttle.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Shuttle.entitlements; sourceTree = "<group>"; };
 		7E74A7C51789CE2F0079E0D2 /* shuttle.default.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = shuttle.default.json; sourceTree = "<group>"; };
-		A124BA161D45572B00218F2F /* iTerm2-stable-current-window.scpt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "iTerm2-stable-current-window.scpt"; sourceTree = "<group>"; };
-		A124BA171D45572B00218F2F /* iTerm2-stable-new-tab-default.scpt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "iTerm2-stable-new-tab-default.scpt"; sourceTree = "<group>"; };
-		A124BA181D45572B00218F2F /* iTerm2-stable-new-window.scpt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "iTerm2-stable-new-window.scpt"; sourceTree = "<group>"; };
-		A12D9BEA1BCF2C73004F52A6 /* iTerm2-nightly-current-window.scpt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "iTerm2-nightly-current-window.scpt"; sourceTree = "<group>"; };
-		A12D9BEB1BCF2C73004F52A6 /* iTerm2-nightly-new-tab-default.scpt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "iTerm2-nightly-new-tab-default.scpt"; sourceTree = "<group>"; };
-		A12D9BEC1BCF2C73004F52A6 /* iTerm2-nightly-new-window.scpt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "iTerm2-nightly-new-window.scpt"; sourceTree = "<group>"; };
-		A12D9BED1BCF2C73004F52A6 /* terminal-current-window.scpt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "terminal-current-window.scpt"; sourceTree = "<group>"; };
-		A12D9BEE1BCF2C73004F52A6 /* terminal-new-tab-default.scpt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "terminal-new-tab-default.scpt"; sourceTree = "<group>"; };
-		A12D9BEF1BCF2C73004F52A6 /* terminal-new-window.scpt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "terminal-new-window.scpt"; sourceTree = "<group>"; };
 		A1B7B9D31DB5361700809327 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		A1B7B9DE1DB53ED200809327 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A1B7B9E01DB53ED700809327 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Base; path = Base.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -113,23 +93,6 @@
 			name = Images;
 			sourceTree = "<group>";
 		};
-		A12D9BE61BCF2C72004F52A6 /* apple-scpt */ = {
-			isa = PBXGroup;
-			children = (
-				24399FE5219CD0F700C8658F /* virtual-with-screen.scpt */,
-				A124BA161D45572B00218F2F /* iTerm2-stable-current-window.scpt */,
-				A124BA171D45572B00218F2F /* iTerm2-stable-new-tab-default.scpt */,
-				A124BA181D45572B00218F2F /* iTerm2-stable-new-window.scpt */,
-				A12D9BEA1BCF2C73004F52A6 /* iTerm2-nightly-current-window.scpt */,
-				A12D9BEB1BCF2C73004F52A6 /* iTerm2-nightly-new-tab-default.scpt */,
-				A12D9BEC1BCF2C73004F52A6 /* iTerm2-nightly-new-window.scpt */,
-				A12D9BED1BCF2C73004F52A6 /* terminal-current-window.scpt */,
-				A12D9BEE1BCF2C73004F52A6 /* terminal-new-tab-default.scpt */,
-				A12D9BEF1BCF2C73004F52A6 /* terminal-new-window.scpt */,
-			);
-			path = "apple-scpt";
-			sourceTree = "<group>";
-		};
 		C149EBEE15D5214600B1F558 = {
 			isa = PBXGroup;
 			children = (
@@ -172,7 +135,6 @@
 			children = (
 				5C17BDD02D8524F800535AF8 /* TerminalManager.h */,
 				5C17BDD12D8524F800535AF8 /* TerminalManager.m */,
-				A12D9BE61BCF2C72004F52A6 /* apple-scpt */,
 				7E74A7C51789CE2F0079E0D2 /* shuttle.default.json */,
 				7E72D21E178003ED00A6389C /* Shuttle.entitlements */,
 				C159DC2715D5DE7F00F5DE24 /* shuttle.icns */,
@@ -260,24 +222,14 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A12D9BF61BCF2C73004F52A6 /* terminal-current-window.scpt in Resources */,
-				A12D9BF31BCF2C73004F52A6 /* iTerm2-nightly-current-window.scpt in Resources */,
 				A1B7B9DD1DB53ED200809327 /* Localizable.strings in Resources */,
-				A12D9BF51BCF2C73004F52A6 /* iTerm2-nightly-new-window.scpt in Resources */,
 				0ADB3B0D178EF8DB004E9BB9 /* StatusIcon.png in Resources */,
-				24399FE6219CD0F700C8658F /* virtual-with-screen.scpt in Resources */,
 				C149EC0815D5214600B1F558 /* InfoPlist.strings in Resources */,
 				6FC541A31D45CF7F00A896E3 /* AboutWindowController.xib in Resources */,
 				0ADB3B0E178EF8DB004E9BB9 /* StatusIcon@2x.png in Resources */,
-				A124BA191D45572B00218F2F /* iTerm2-stable-current-window.scpt in Resources */,
-				A12D9BF41BCF2C73004F52A6 /* iTerm2-nightly-new-tab-default.scpt in Resources */,
 				C149EC0E15D5214600B1F558 /* Credits.rtf in Resources */,
-				A12D9BF71BCF2C73004F52A6 /* terminal-new-tab-default.scpt in Resources */,
 				C149EC1415D5214600B1F558 /* MainMenu.xib in Resources */,
-				A124BA1B1D45572B00218F2F /* iTerm2-stable-new-window.scpt in Resources */,
-				A124BA1A1D45572B00218F2F /* iTerm2-stable-new-tab-default.scpt in Resources */,
 				C159DC2815D5DE8000F5DE24 /* shuttle.icns in Resources */,
-				A12D9BF81BCF2C73004F52A6 /* terminal-new-window.scpt in Resources */,
 				7E74A7C61789CE2F0079E0D2 /* shuttle.default.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
