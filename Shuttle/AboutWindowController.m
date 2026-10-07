@@ -34,15 +34,15 @@
     id applicationCopyright = [plistDict objectForKey:@"NSHumanReadableCopyright"];
     
     //Build the string for the windows title.
-    NSString *aboutTitle = [NSString stringWithFormat:@"%@%@", NSLocalizedString(@"About ",nil), applicationName];
+    NSString *aboutTitle = [NSString stringWithFormat:NSLocalizedString(@"About %@", nil), applicationName];
     [self.window setTitle:aboutTitle];
     
     //Build the string for the application name. appName - tagline
-    NSString *progName = [NSString stringWithFormat:@"%@%@", applicationName, NSLocalizedString(@" - A simple SSH shortcut menu.",nil)];
+    NSString *progName = [NSString stringWithFormat:NSLocalizedString(@"%@ - A simple SSH shortcut menu.", nil), applicationName];
     [appName setStringValue:progName];
     
     //Build the string for the version. Version: $build
-    NSString *progVersion = [NSString stringWithFormat:@"%@%@", NSLocalizedString(@"Version: ",nil), applicationVersion];
+    NSString *progVersion = [NSString stringWithFormat:NSLocalizedString(@"Version: %@", nil), applicationVersion];
     [appVersion setStringValue:progVersion];
     
     //Make the copyright font smaller.

@@ -796,7 +796,7 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
         terminalWindow = [objectsFromJSON objectAtIndex:3];
         if( ![terminalWindow isEqualToString:@"new"] && ![terminalWindow isEqualToString:@"current"] && ![terminalWindow isEqualToString:@"tab"] && ![terminalWindow isEqualToString:@"virtual"])
         {
-            errorMessage = [NSString stringWithFormat:@"%@%@%@ %@",@"'",terminalWindow,@"'", NSLocalizedString(@"is not a valid value for inTerminal. Please fix this in the JSON file",nil)];
+            errorMessage = [NSString stringWithFormat:NSLocalizedString(@"'%@' is not a valid value for inTerminal. Please fix this in the JSON file", nil), terminalWindow];
             errorInfo = NSLocalizedString(@"bad \"inTerminal\":\"VALUE\" in the JSON settings",nil);
             [self showWarning:errorMessage additionalInfo:errorInfo];
             return;

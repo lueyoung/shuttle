@@ -15,6 +15,9 @@ jobs:
       - name: Validate config fixtures
         run: python3 tests/test_config_fixtures.py
 
+      - name: Check translations
+        run: python3 tests/test_localization.py
+
       - name: Build Shuttle
         env:
           SHUTTLE_DERIVED_DATA_PATH: ${{ runner.temp }}/shuttle-deriveddata

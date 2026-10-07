@@ -7,12 +7,19 @@
 */
 /* NSLocalizedString(@"",nil)*/
 
-"About " = "关于 ";
-"Version: " = "版本：";
-" - A simple SSH shortcut menu." = " - 简易的 SSH 快捷菜单。";
+"About %@" = "关于 %@";
+"Version: %@" = "版本：%@";
+"%@ - A simple SSH shortcut menu." = "%@ - 简易的 SSH 快捷菜单。";
 
-"Quit" = "退出";
-"Continue" = "继续";
+"OK" = "好";
 
-"is not a valid value for inTerminal. Please fix this in the JSON file" = "不是一个有效的 inTerminal 值。请修改 JSON 文件。";
+"Error parsing config" = "配置文件解析出错";
+"Error parsing alternate config" = "备用配置文件解析出错";
+"Could not import config" = "无法导入配置";
+"Could not export config" = "无法导出配置";
+"Editing shuttle JSON" = "编辑 Shuttle JSON 配置";
+
+"Invalid menu item configuration" = "菜单项配置无效";
+"The selected item does not contain a complete command definition." = "所选菜单项缺少完整的命令定义。";
+"'%@' is not a valid value for inTerminal. Please fix this in the JSON file" = "'%@' 不是一个有效的 inTerminal 值。请修改 JSON 文件。";
 "bad \"inTerminal\":\"VALUE\" in the JSON settings" = "错误的 \"inTerminal\":\"VALUE\" 在 JSON 设置中";

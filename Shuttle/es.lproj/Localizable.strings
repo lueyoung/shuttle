@@ -4,6 +4,19 @@
   Translations done by Rebecca Dominguez
 */
 
-"About " = "Acerca ";
-"Version: " = "Versión: ";
-" - A simple SSH shortcut menu." = " - Un SSH menu simple de shortcuts (atajos).";
+"About %@" = "Acerca de %@";
+"Version: %@" = "Versión: %@";
+"%@ - A simple SSH shortcut menu." = "%@ - Un SSH menu simple de shortcuts (atajos).";
+
+"OK" = "Aceptar";
+
+"Error parsing config" = "Error al leer la configuración";
+"Error parsing alternate config" = "Error al leer la configuración alternativa";
+"Could not import config" = "No se pudo importar la configuración";
+"Could not export config" = "No se pudo exportar la configuración";
+"Editing shuttle JSON" = "Editando el JSON de Shuttle";
+
+"Invalid menu item configuration" = "Configuración de elemento de menú no válida";
+"The selected item does not contain a complete command definition." = "El elemento seleccionado no contiene una definición de comando completa.";
+"'%@' is not a valid value for inTerminal. Please fix this in the JSON file" = "'%@' no es un valor válido para inTerminal. Corrígelo en el archivo JSON";
+"bad \"inTerminal\":\"VALUE\" in the JSON settings" = "valor \"inTerminal\":\"VALUE\" incorrecto en la configuración JSON";

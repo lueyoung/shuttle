@@ -4,7 +4,19 @@
  Translations done by Alexis NIVON <anivon@alexisnivon.fr>
 */
 
-"About " = "A propos de ";
-"Version: " = "Version: ";
-" - A simple SSH shortcut menu." = " - Le gestionnaire de raccourcis SSH.";
+"About %@" = "A propos de %@";
+"Version: %@" = "Version: %@";
+"%@ - A simple SSH shortcut menu." = "%@ - Le gestionnaire de raccourcis SSH.";
+
+"OK" = "OK";
+
 "Error parsing config" = "Fichier de paramétrage invalide";
+"Error parsing alternate config" = "Fichier de paramétrage alternatif invalide";
+"Could not import config" = "Impossible d'importer le paramétrage";
+"Could not export config" = "Impossible d'exporter le paramétrage";
+"Editing shuttle JSON" = "Modification du JSON de Shuttle";
+
+"Invalid menu item configuration" = "Configuration d'élément de menu invalide";
+"The selected item does not contain a complete command definition." = "L'élément sélectionné ne contient pas de définition de commande complète.";
+"'%@' is not a valid value for inTerminal. Please fix this in the JSON file" = "'%@' n'est pas une valeur valide pour inTerminal. Corrigez-la dans le fichier JSON";
+"bad \"inTerminal\":\"VALUE\" in the JSON settings" = "valeur \"inTerminal\":\"VALUE\" incorrecte dans les paramètres JSON";

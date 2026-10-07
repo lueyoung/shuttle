@@ -99,13 +99,16 @@ Run the test suites with:
 
 ```bash
 python3 tests/test_config_fixtures.py
+python3 tests/test_localization.py
 python3 tests/test_openhost_smoke.py
 python3 tests/test_regression.py
 ```
 
+`test_localization.py` checks that every `NSLocalizedString` used in the code is translated in `es`, `fr` and `zh-Hans`.
+
 The smoke and regression tests compile small Objective-C harnesses against the app sources with `xcrun clang`, so they need the Xcode command line tools. They never launch a terminal.
 
-The GitHub Actions workflow runs all three suites and a macOS build.
+The GitHub Actions workflow runs all of these suites and a macOS build.
 
 ## Configuration
 
