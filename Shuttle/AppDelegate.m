@@ -642,8 +642,8 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
 - (void) buildMenu:(NSArray*)data addToMenu:(NSMenu *)m {
     // go through the array and sort out the menus and the leafs into
     // separate bucks so we can sort them independently.
-    NSMutableDictionary* menus = [[NSMutableDictionary alloc] init];
-    NSMutableDictionary* leafs = [[NSMutableDictionary alloc] init];
+    NSMutableDictionary<NSString *, NSMutableArray *> *menus = [[NSMutableDictionary alloc] init];
+    NSMutableArray<NSDictionary *> *leafs = [[NSMutableArray alloc] init];
 
     for (id rawItem in data) {
         if (![rawItem isKindOfClass:[NSDictionary class]]) {
@@ -652,20 +652,27 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
 
         NSDictionary* item = rawItem;
         if ([item[@"cmd"] isKindOfClass:[NSString class]] && [item[@"name"] isKindOfClass:[NSString class]]) {
-            // this is a leaf
-            [leafs setObject:item forKey:item[@"name"]];
+            // this is a leaf; leafs with the same name are all kept
+            [leafs addObject:item];
         } else {
-            // must be a menu - add all instances
+            // must be a menu - menus with the same name are merged
             for (NSString* key in item) {
                 if ([item[key] isKindOfClass:[NSArray class]]) {
-                    [menus setObject:item[key] forKey:key];
+                    if (!menus[key]) {
+                        menus[key] = [NSMutableArray array];
+                    }
+                    [menus[key] addObjectsFromArray:item[key]];
                 }
             }
         }
     }
 
     NSArray* menuKeys = [[menus allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
-    NSArray* leafKeys = [[leafs allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+    // A stable sort keeps same-named leafs in config order.
+    NSArray* sortedLeafs = [leafs sortedArrayWithOptions:NSSortStable
+                                         usingComparator:^NSComparisonResult(NSDictionary *first, NSDictionary *second) {
+        return [first[@"name"] localizedCaseInsensitiveCompare:second[@"name"]];
+    }];
 
     NSInteger pos = 0;
 
@@ -685,8 +692,7 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     }
 
     // now create leafs
-    for (NSString *key in leafKeys) {
-        NSDictionary* cfg = leafs[key];
+    for (NSDictionary *cfg in sortedLeafs) {
         NSMenuItem* menuItem = [[NSMenuItem alloc] init];
 
         //Get the menu name will will use this as the title if title is null.

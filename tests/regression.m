@@ -356,6 +356,51 @@ static void SSHConfigHostPatternsAreNotShown(void) {
     EXPECT([titles isEqualToArray:@[@"real-host"]], @"host patterns shown as hosts: %@", titles);
 }
 
+static void BuildMenuKeepsSameNamedHostsAndMergesGroups(void) {
+    NSArray *data = @[
+        @{@"name": @"prod", @"cmd": @"ssh prod-a"},
+        @{@"name": @"prod", @"cmd": @"ssh prod-b"},
+        @{@"Work": @[@{@"name": @"y", @"cmd": @"echo y"}, @{@"DB": @[@{@"name": @"db1", @"cmd": @"echo db1"}]}]},
+        @{@"Work": @[@{@"name": @"x", @"cmd": @"echo x"}, @{@"DB": @[@{@"name": @"db2", @"cmd": @"echo db2"}]}]}
+    ];
+    NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
+    [[[AppDelegate alloc] init] buildMenu:data addToMenu:menu];
+
+    NSArray *titles = Titles([menu itemArray]);
+    EXPECT([titles isEqualToArray:(@[@"Work", @"prod", @"prod"])], @"unexpected top level: %@", titles);
+    NSMutableArray *commands = [NSMutableArray array];
+    for (NSMenuItem *item in [menu itemArray]) {
+        if ([[item title] isEqualToString:@"prod"]) {
+            [commands addObject:[item representedObject][@"cmd"] ?: @"(none)"];
+        }
+    }
+    EXPECT([commands isEqualToArray:(@[@"ssh prod-a", @"ssh prod-b"])], @"same-named hosts not kept in config order: %@", commands);
+
+    NSMenu *work = [[menu itemWithTitle:@"Work"] submenu];
+    NSArray *workTitles = Titles([work itemArray]);
+    EXPECT([workTitles isEqualToArray:(@[@"DB", @"x", @"y"])], @"same-named groups not merged: %@", workTitles);
+    NSArray *dbTitles = Titles([[[work itemWithTitle:@"DB"] submenu] itemArray]);
+    EXPECT([dbTitles isEqualToArray:(@[@"db1", @"db2"])], @"nested same-named groups not merged: %@", dbTitles);
+}
+
+static void AlternateConfigGroupsMergeWithMainConfig(void) {
+    NSString *directory = MakeTemporaryDirectory();
+    NSString *config = WriteFile(directory, @"shuttle.json",
+                                 @"{\"show_ssh_config_hosts\": false, \"hosts\": [{\"Work\": [{\"name\": \"main-host\", \"cmd\": \"echo main\"}]}]}");
+    NSString *altConfig = WriteFile(directory, @"shuttle-alt.json",
+                                    @"{\"hosts\": [{\"Work\": [{\"name\": \"alt-host\", \"cmd\": \"echo alt\"}]}]}");
+    NSMenu *menu = MakeStatusMenu();
+    RegressionAppDelegate *delegate = MakeDelegate(config, menu, [[FakeLaunchAtLoginController alloc] init]);
+    [delegate setValue:altConfig forKey:@"shuttleAltConfigFile"];
+    [delegate setValue:@YES forKey:@"parseAltJSON"];
+
+    [delegate menuWillOpen:menu];
+
+    EXPECT([DynamicTitles(menu) isEqualToArray:@[@"Work"]], @"unexpected top level: %@", DynamicTitles(menu));
+    NSArray *workTitles = Titles([[[menu itemWithTitle:@"Work"] submenu] itemArray]);
+    EXPECT([workTitles isEqualToArray:(@[@"alt-host", @"main-host"])], @"main and alternate Work groups not merged: %@", workTitles);
+}
+
 #pragma mark - Runner
 
 typedef struct {
@@ -376,6 +421,8 @@ static const RegressionCase cases[] = {
     {"boolean_settings_tolerate_wrong_types", BooleanSettingsTolerateWrongTypes},
     {"ssh_config_host_without_alias_is_skipped", SSHConfigHostWithoutAliasIsSkipped},
     {"ssh_config_host_patterns_are_not_shown", SSHConfigHostPatternsAreNotShown},
+    {"build_menu_keeps_same_named_hosts_and_merges_groups", BuildMenuKeepsSameNamedHostsAndMergesGroups},
+    {"alternate_config_groups_merge_with_main_config", AlternateConfigGroupsMergeWithMainConfig},
 };
 
 static BOOL RunCase(RegressionCase regressionCase) {

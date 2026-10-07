@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - @anivon localize Error parsing config message is JSON is invalid 
 - @blackadmin version typos in about window. 
 - @ChrisMoriarty add the ability to set the terminal window position and size
+- Hosts with the same name are all shown instead of only the last one, and groups with the same name (for example in the main and alternate config) are merged into one submenu
 
 ## [1.2.9] - 2016-10-18
 ### Added
