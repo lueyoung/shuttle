@@ -20,6 +20,8 @@
 - (void)showWarning:(NSString *)message additionalInfo:(NSString *)info;
 - (BOOL)isOpenHostDryRunEnabled;
 - (IBAction)showAbout:(id)sender;
+- (BOOL)exportConfigToURL:(NSURL *)destinationURL error:(NSError **)error;
+- (BOOL)importConfigFromURL:(NSURL *)sourceURL error:(NSError **)error;
 @end
 
 // Reads ssh config from the files a case provides instead of the real ones on this machine,
@@ -93,6 +95,10 @@ static NSString *WriteFile(NSString *directory, NSString *name, NSString *conten
     NSString *path = [directory stringByAppendingPathComponent:name];
     [contents writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:NULL];
     return path;
+}
+
+static NSString *ReadFile(NSString *path) {
+    return [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:NULL];
 }
 
 // Moves a file's modification date so a rewrite is always seen as newer.
@@ -475,6 +481,74 @@ static void AboutWindowControllerIsReleasedAndReused(void) {
            @"each About click creates a new window controller");
 }
 
+static void ExportReplacesExistingFile(void) {
+    NSString *directory = MakeTemporaryDirectory();
+    NSString *contents = @"{\"hosts\": []}";
+    NSString *config = WriteFile(directory, @"shuttle.json", contents);
+    AppDelegate *delegate = [[AppDelegate alloc] init];
+    [delegate setValue:config forKey:@"shuttleConfigFile"];
+
+    for (NSString *name in @[@"new-export.json", @"existing-export.json"]) {
+        if ([name hasPrefix:@"existing"]) {
+            WriteFile(directory, name, @"old export");
+        }
+        NSString *destination = [directory stringByAppendingPathComponent:name];
+        NSError *error = nil;
+
+        BOOL exported = [delegate exportConfigToURL:[NSURL fileURLWithPath:destination] error:&error];
+
+        EXPECT(exported && [ReadFile(destination) isEqualToString:contents], @"%@: export failed: %@", name, error);
+    }
+}
+
+static void ImportRejectsInvalidConfig(void) {
+    NSString *directory = MakeTemporaryDirectory();
+    NSString *original = @"{\"hosts\": []}";
+    NSString *config = WriteFile(directory, @"shuttle.json", original);
+    AppDelegate *delegate = [[AppDelegate alloc] init];
+    [delegate setValue:config forKey:@"shuttleConfigFile"];
+    NSDictionary *invalid = @{@"not JSON": @"{\"hosts\": [", @"array root": @"[]"};
+
+    for (NSString *label in invalid) {
+        NSString *source = WriteFile(directory, @"incoming.json", invalid[label]);
+        NSError *error = nil;
+
+        BOOL imported = [delegate importConfigFromURL:[NSURL fileURLWithPath:source] error:&error];
+
+        EXPECT(!imported && error != nil, @"%@: invalid config was imported", label);
+        EXPECT([ReadFile(config) isEqualToString:original], @"%@: config changed by a rejected import", label);
+    }
+}
+
+static void ImportReplacesConfig(void) {
+    NSString *imported = @"{\"hosts\": [{\"name\": \"Imported\", \"cmd\": \"echo imported\"}]}";
+
+    for (NSString *label in @[@"existing", @"missing", @"symlinked"]) {
+        NSString *directory = MakeTemporaryDirectory();
+        NSString *config = [directory stringByAppendingPathComponent:@"shuttle.json"];
+        NSString *written = config;
+        if ([label isEqualToString:@"existing"]) {
+            WriteFile(directory, @"shuttle.json", @"{\"hosts\": []}");
+        } else if ([label isEqualToString:@"symlinked"]) {
+            // e.g. a config kept in a dotfiles repository and linked into place
+            written = WriteFile(directory, @"dotfiles-shuttle.json", @"{\"hosts\": []}");
+            [[NSFileManager defaultManager] createSymbolicLinkAtPath:config withDestinationPath:written error:NULL];
+        }
+        AppDelegate *delegate = [[AppDelegate alloc] init];
+        [delegate setValue:config forKey:@"shuttleConfigFile"];
+        NSString *source = WriteFile(directory, @"incoming.json", imported);
+        NSError *error = nil;
+
+        BOOL ok = [delegate importConfigFromURL:[NSURL fileURLWithPath:source] error:&error];
+
+        EXPECT(ok && [ReadFile(written) isEqualToString:imported], @"%@ config: import failed: %@", label, error);
+        if ([label isEqualToString:@"symlinked"]) {
+            NSString *type = [[NSFileManager defaultManager] attributesOfItemAtPath:config error:NULL][NSFileType];
+            EXPECT([type isEqualToString:NSFileTypeSymbolicLink], @"config symlink was replaced by %@", type);
+        }
+    }
+}
+
 #pragma mark - Runner
 
 typedef struct {
@@ -499,6 +573,9 @@ static const RegressionCase cases[] = {
     {"alternate_config_groups_merge_with_main_config", AlternateConfigGroupsMergeWithMainConfig},
     {"config_errors_warn_without_quitting", ConfigErrorsWarnWithoutQuitting},
     {"about_window_controller_is_released_and_reused", AboutWindowControllerIsReleasedAndReused},
+    {"export_replaces_existing_file", ExportReplacesExistingFile},
+    {"import_rejects_invalid_config", ImportRejectsInvalidConfig},
+    {"import_replaces_config", ImportReplacesConfig},
 };
 
 static BOOL RunCase(RegressionCase regressionCase) {

@@ -924,61 +924,78 @@ static NSString *const ShuttleOpenHostDryRunEnvironmentKey = @"SHUTTLE_OPENHOST_
     [alert runModal];
 }
 
+// Copies sourceURL to destinationURL through a temporary file, replacing an existing destination in one step.
+- (BOOL)replaceItemAtURL:(NSURL *)destinationURL withCopyOfURL:(NSURL *)sourceURL error:(NSError **)error {
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSURL *temporaryDirectory = [fileManager URLForDirectory:NSItemReplacementDirectory
+                                                    inDomain:NSUserDomainMask
+                                           appropriateForURL:[destinationURL URLByDeletingLastPathComponent]
+                                                      create:YES
+                                                       error:error];
+    if (!temporaryDirectory) {
+        return NO;
+    }
+
+    NSURL *temporaryURL = [temporaryDirectory URLByAppendingPathComponent:[destinationURL lastPathComponent]];
+    BOOL replaced = [fileManager copyItemAtURL:[sourceURL URLByResolvingSymlinksInPath] toURL:temporaryURL error:error];
+    if (replaced) {
+        if ([fileManager fileExistsAtPath:[destinationURL path]]) {
+            replaced = [fileManager replaceItemAtURL:destinationURL
+                                       withItemAtURL:temporaryURL
+                                      backupItemName:nil
+                                             options:0
+                                    resultingItemURL:nil
+                                               error:error];
+        } else {
+            replaced = [fileManager moveItemAtURL:temporaryURL toURL:destinationURL error:error];
+        }
+    }
+
+    [fileManager removeItemAtURL:temporaryDirectory error:nil];
+    return replaced;
+}
+
+- (BOOL)importConfigFromURL:(NSURL *)sourceURL error:(NSError **)error {
+    // Refuse a file Shuttle could not load instead of replacing a working config with it.
+    NSDictionary *json = nil;
+    if (![self loadJSONDictionaryAtPath:[sourceURL path] into:&json error:error]) {
+        return NO;
+    }
+
+    // Write through a symlinked config (e.g. one kept in a dotfiles repository) instead of replacing the link.
+    NSURL *configURL = [[NSURL fileURLWithPath:shuttleConfigFile] URLByResolvingSymlinksInPath];
+    return [self replaceItemAtURL:configURL withCopyOfURL:sourceURL error:error];
+}
+
+- (BOOL)exportConfigToURL:(NSURL *)destinationURL error:(NSError **)error {
+    return [self replaceItemAtURL:destinationURL withCopyOfURL:[NSURL fileURLWithPath:shuttleConfigFile] error:error];
+}
+
 - (IBAction)showImportPanel:(id)sender {
     NSOpenPanel * openPanelObj	= [NSOpenPanel openPanel];
     NSInteger tvarNSInteger	= [openPanelObj runModal];
     if(tvarNSInteger == NSModalResponseOK){
-        NSFileManager *fileManager = [NSFileManager defaultManager];
-        NSURL * selectedFileUrl = [openPanelObj URL];
-        NSURL *configURL = [NSURL fileURLWithPath:shuttleConfigFile];
-        NSString *tempPath = [NSTemporaryDirectory() stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
-        NSURL *tempURL = [NSURL fileURLWithPath:tempPath];
         NSError *error = nil;
-
-        if (![fileManager copyItemAtURL:selectedFileUrl toURL:tempURL error:&error]) {
+        if (![self importConfigFromURL:[openPanelObj URL] error:&error]) {
             [self showWarning:NSLocalizedString(@"Could not import config", nil)
                additionalInfo:[error localizedDescription]];
-            return;
         }
-
-        if ([fileManager fileExistsAtPath:shuttleConfigFile]) {
-            NSString *backupName = [[configURL lastPathComponent] stringByAppendingString:@".backup"];
-            NSURL *resultingURL = nil;
-            if (![fileManager replaceItemAtURL:configURL
-                                  withItemAtURL:tempURL
-                                 backupItemName:backupName
-                                        options:0
-                               resultingItemURL:&resultingURL
-                                          error:&error]) {
-                [fileManager removeItemAtURL:tempURL error:nil];
-                [self showWarning:NSLocalizedString(@"Could not import config", nil)
-                   additionalInfo:[error localizedDescription]];
-                return;
-            }
-
-            NSURL *backupURL = [[configURL URLByDeletingLastPathComponent] URLByAppendingPathComponent:backupName];
-            [fileManager removeItemAtURL:backupURL error:nil];
-        } else if (![fileManager moveItemAtURL:tempURL toURL:configURL error:&error]) {
-            [fileManager removeItemAtURL:tempURL error:nil];
-            [self showWarning:NSLocalizedString(@"Could not import config", nil)
-               additionalInfo:[error localizedDescription]];
-            return;
-        }
-    } else {
-        return;
     }
-
 }
 
 - (IBAction)showExportPanel:(id)sender {
     NSSavePanel * savePanelObj	= [NSSavePanel savePanel];
+    // Suggest the config's own name without the leading dot, which would hide the exported file.
+    NSString *suggestedName = [[shuttleConfigFile lastPathComponent] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"."]];
+    if ([suggestedName length] > 0) {
+        [savePanelObj setNameFieldStringValue:suggestedName];
+    }
     //Display the Save Panel
     NSInteger result	= [savePanelObj runModal];
     if (result == NSModalResponseOK) {
-        NSURL *saveURL = [savePanelObj URL];
-        // then copy a previous file to the new location
+        // the save panel already asked before replacing an existing file
         NSError *error = nil;
-        if (![[NSFileManager defaultManager] copyItemAtPath:shuttleConfigFile toPath:saveURL.path error:&error]) {
+        if (![self exportConfigToURL:[savePanelObj URL] error:&error]) {
             [self showWarning:NSLocalizedString(@"Could not export config", nil)
                additionalInfo:[error localizedDescription]];
         }
